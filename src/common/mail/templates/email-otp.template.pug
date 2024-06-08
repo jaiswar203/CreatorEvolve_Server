@@ -1,0 +1,101 @@
+doctype html
+html
+  head
+    style.
+      :root {
+        --background: 0 0% 100%;
+        --foreground: 240 10% 3.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 240 10% 3.9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 240 10% 3.9%;
+        --primary: 346.8 77.2% 49.8%;
+        --primary-foreground: 355.7 100% 97.3%;
+        --secondary: 240 4.8% 95.9%;
+        --secondary-foreground: 240 5.9% 10%;
+        --muted: 240 4.8% 95.9%;
+        --muted-foreground: 240 3.8% 46.1%;
+        --accent: 240 4.8% 95.9%;
+        --accent-foreground: 240 5.9% 10%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 5.9% 90%;
+        --input: 240 5.9% 90%;
+        --ring: 346.8 77.2% 49.8%;
+        --radius: 0.5rem;
+      }
+      .container {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: hsl(var(--card));
+        padding: 20px;
+        border-radius: var(--radius);
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+      .header {
+        background-color: hsl(var(--primary));
+        color: hsl(var(--primary-foreground));
+        text-align: center;
+        padding: 20px 0;
+        border-top-left-radius: var(--radius);
+        border-top-right-radius: var(--radius);
+      }
+      .header img {
+        width: 80px;
+        height: auto;
+        margin-bottom: 10px;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: normal;
+      }
+      .content {
+        padding: 30px 20px;
+        text-align: center;
+      }
+      .content h2 {
+        margin: 0 0 10px 0;
+        font-size: 22px;
+        color: hsl(var(--primary));
+      }
+      .content p {
+        font-size: 16px;
+        color: hsl(var(--foreground));
+        margin: 0 0 20px 0;
+      }
+      .otp {
+        display: inline-block;
+        font-size: 28px;
+        font-weight: bold;
+        color: hsl(var(--primary-foreground));
+        background-color: hsl(var(--primary));
+        padding: 15px 30px;
+        border-radius: 5px;
+      }
+      .footer {
+        background-color: hsl(var(--muted));
+        text-align: center;
+        padding: 20px 0;
+        border-bottom-left-radius: var(--radius);
+        border-bottom-right-radius: var(--radius);
+        font-size: 12px;
+        color: hsl(var(--muted-foreground));
+      }
+      .footer p {
+        margin: 0;
+      }
+  body
+    .container
+      .header
+        img(src="https://res.cloudinary.com/dykwfe4cr/image/upload/v1716968575/icon_ws4oad.webp" alt="Icon")
+        h1 CreatorEvolve
+      .content
+        h2 Your One-Time Password (OTP)
+        p Use the following OTP to complete your login process:
+        .otp #{otp}
+        p This OTP is valid for 10 minutes. Please do not share this code with anyone.
+      .footer
+        p If you did not request this OTP, please ignore this email.

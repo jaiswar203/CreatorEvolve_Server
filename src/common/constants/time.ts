@@ -1,0 +1,7 @@
+export enum MINUTES {
+  ONE = 60000,
+  TWO = MINUTES.ONE * 2,
+  FIVE = MINUTES.ONE * 5,
+  TEN = MINUTES.ONE * 10,
+  TWENTY = MINUTES.ONE * 20,
+}
