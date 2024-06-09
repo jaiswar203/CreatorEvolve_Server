@@ -30,7 +30,8 @@ import {
   OpenAIService,
 } from 'libs/openai/services/openai.service';
 
-import { google } from 'googleapis';
+import { auth } from 'googleapis/build/src/apis/oauth2';
+import { youtube as _youtube } from 'googleapis/build/src/apis/youtube';
 
 @Injectable()
 export class VideoService {
@@ -682,10 +683,10 @@ export class VideoService {
       const user = await this.userService.getUserById(userId);
       const accessToken = user.google_access_token;
 
-      const oauth2Client = new google.auth.OAuth2();
+      const oauth2Client = new auth.OAuth2();
       oauth2Client.setCredentials({ access_token: accessToken });
 
-      const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+      const youtube = _youtube({ version: 'v3', auth: oauth2Client });
 
       const response = await youtube.videos.insert({
         part: ['snippet', 'status'],
@@ -748,10 +749,10 @@ export class VideoService {
 
       const accessToken = user.google_access_token;
 
-      const oauth2Client = new google.auth.OAuth2();
+      const oauth2Client = new auth.OAuth2();
       oauth2Client.setCredentials({ access_token: accessToken });
 
-      const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+      const youtube = _youtube({ version: 'v3', auth: oauth2Client });
 
       const response = await youtube.search.list({
         part: ['id', 'snippet'],

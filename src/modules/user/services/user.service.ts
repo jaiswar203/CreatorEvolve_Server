@@ -4,7 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { User } from '@/schemas/users/user.schema';
 import { UserDto } from '../dto/user.request.dto';
 import * as bcrypt from 'bcrypt';
-import { google } from 'googleapis';
+import { auth } from 'googleapis/build/src/apis/oauth2';
 
 @Injectable()
 export class UserService {
@@ -54,7 +54,7 @@ export class UserService {
 
   async refreshAccessToken(userId: string): Promise<string> {
     const user = await this.getUserById(userId);
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new auth.OAuth2();
     oauth2Client.setCredentials({
       refresh_token: user.google_refresh_token,
     });
