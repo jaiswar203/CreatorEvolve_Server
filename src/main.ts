@@ -7,7 +7,7 @@ import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ResponseInterceptor } from 'interceptors/response.interceptor';
 import { HttpExceptionInterceptor as HttpExceptionFilter } from '@/common/filters/http-exception.filter';
-// import * as csurf from 'csurf';
+import { AppClusterService } from './cluster';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -25,10 +25,9 @@ async function bootstrap() {
 
   app.useLogger(app.get(Logger));
   app.use(helmet());
-  app.useBodyParser('text')
-  // app.use(csurf());
-  app.useGlobalInterceptors(new ResponseInterceptor())
-  app.useGlobalFilters(new HttpExceptionFilter())
+  app.useBodyParser('text');
+  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -41,4 +40,6 @@ async function bootstrap() {
 
   await app.listen(port);
 }
+
+// AppClusterService.clusterize(bootstrap); // uncomment this to enable clustering
 bootstrap();

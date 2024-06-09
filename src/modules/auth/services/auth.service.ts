@@ -57,7 +57,11 @@ export class AuthService {
       throw new HttpException('Invalid password', HttpStatus.UNAUTHORIZED);
     }
 
-    const payload = { sub: user._id };
+    const payload = {
+      sub: user._id,
+      roles: user.roles,
+      access_code: user.access_code,
+    };
 
     this.loggerService.log(
       JSON.stringify({
@@ -155,10 +159,12 @@ export class AuthService {
           google_id: dbUser.google_id,
           name: dbUser.name,
           email: dbUser.email,
-          credit: dbUser.credits,
+          credits: dbUser.credits,
           phone: dbUser.phone,
           is_verified: dbUser.is_verified,
           _id: dbUser._id,
+          roles: dbUser.roles,
+          access_code: dbUser.access_code,
         };
         await dbUser.save();
         const token = await this.jwtService.signAsync(payload);
@@ -168,8 +174,11 @@ export class AuthService {
         email: body.email,
         name: body.name,
         google_id: body.id,
+        roles: dbUser.roles,
+        access_code: dbUser.access_code,
         google_access_token: body.accessToken,
         google_refresh_token: body.refreshToken,
+        phone: dbUser.phone,
         is_verified: true,
       });
       await newUser.save();
@@ -179,7 +188,9 @@ export class AuthService {
         google_id: newUser.google_id,
         name: newUser.name,
         email: newUser.email,
-        credit: newUser.credits,
+        roles: newUser.roles,
+        access_code: newUser.access_code,
+        credits: newUser.credits,
         phone: newUser.phone,
         _id: newUser._id,
         is_verified: newUser.is_verified,
@@ -280,7 +291,11 @@ export class AuthService {
     await user.save();
     await this.cacheManager.del(userId);
 
-    const payload = { sub: user._id };
+    const payload = {
+      sub: user._id,
+      access_code: user.access_code,
+      roles: user.roles,
+    };
 
     this.loggerService.log(
       JSON.stringify({

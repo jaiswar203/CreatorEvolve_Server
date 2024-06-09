@@ -43,4 +43,14 @@ export class UserResponseDto {
   @IsNotEmpty()
   @Expose()
   access_token: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Expose()
+  roles: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Expose()
+  access_code: string;
 }

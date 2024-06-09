@@ -1,6 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, HydratedDocument, Schema as MongooseSchema } from 'mongoose';
-import { Role } from './role.schema';
+import {
+  Document,
+  HydratedDocument,
+  Schema as MongooseSchema,
+  Model,
+} from 'mongoose';
+import { ROLE } from '@/common/constants/roles.enum';
 import { Video } from '@/schemas/videos/video.schema';
 
 export type UserDocument = HydratedDocument<User>;
@@ -35,23 +40,53 @@ export class User extends Document {
   @Prop({ type: Number, required: true, default: 0 })
   credits: number;
 
-  @Prop({type:String})
+  @Prop({ type: String })
   password: string;
 
-  @Prop({type:String})
+  @Prop({ type: String })
   google_id: string;
 
-  @Prop({type:String})
+  @Prop({ type: String })
   google_access_token: string;
 
-  @Prop({type:String})
+  @Prop({ type: String })
   google_refresh_token: string;
 
-  @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Role' }] })
-  roles: Role[];
+  @Prop({ type: [{ type: String, enum: ROLE }], default: [ROLE.USER] })
+  roles: ROLE[];
 
   @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Video' }] })
   videos: Video[];
+
+  @Prop({ type: Number, unique: true })
+  access_code: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+// Function to generate a random 6-digit access code
+function generateAccessCode() {
+  return Math.floor(100000 + Math.random() * 900000);
+}
+
+// Function to check if an access code is unique
+async function isAccessCodeUnique(code, model) {
+  const user = await model.findOne({ access_code: code });
+  return !user;
+}
+
+// Middleware to generate a unique access code before saving
+UserSchema.pre('save', async function (next) {
+  const user = this as UserDocument;
+  const UserModel = this.constructor as Model<UserDocument>;
+
+  if (user.isNew || user.isModified('access_code')) {
+    let accessCode = generateAccessCode();
+    while (!(await isAccessCodeUnique(accessCode, UserModel))) {
+      accessCode = generateAccessCode();
+    }
+    user.access_code = accessCode;
+  }
+
+  next();
+});

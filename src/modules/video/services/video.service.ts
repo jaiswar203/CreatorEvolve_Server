@@ -51,8 +51,19 @@ export class VideoService {
     return responseGenerator('Videos Fetched', videos);
   }
 
-  async getVideoById(videoId: string):Promise<Video> {
-    const video = await this.videoModel.findById(videoId).lean();
+  async getVideoById(videoId: string, accessCode: number): Promise<Video> {
+    const video = await this.videoModel
+      .findById(videoId)
+      .populate({ path: 'user_id', select: 'access_code' })
+      .lean();
+
+    const hasAccess = await this.userService.verifyUserAccessCode(
+      video.user_id,
+      accessCode,
+    );
+
+    if (!hasAccess)
+      throw new HttpException('Unauthorized Access', HttpStatus.UNAUTHORIZED);
 
     if (!video)
       throw new HttpException(
@@ -666,16 +677,16 @@ export class VideoService {
         message: `uploadToYoutube: ---------- Uploading Video for user ${userId} - Start ------------`,
       }),
     );
-  
+
     try {
       const user = await this.userService.getUserById(userId);
       const accessToken = user.google_access_token;
-  
+
       const oauth2Client = new google.auth.OAuth2();
       oauth2Client.setCredentials({ access_token: accessToken });
-  
+
       const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-  
+
       const response = await youtube.videos.insert({
         part: ['snippet', 'status'],
         requestBody: {
@@ -692,16 +703,16 @@ export class VideoService {
           body: createReadStream(video.path),
         },
       });
-  
+
       await unlink(video.path);
-  
+
       this.loggerService.log(
         JSON.stringify({
           message: `uploadToYoutube: ---------- Video Uploaded for user ${userId} - Completed ------------`,
           data: response.data,
         }),
       );
-  
+
       return response.data;
     } catch (error) {
       this.loggerService.error(
@@ -715,17 +726,17 @@ export class VideoService {
       });
     }
   }
-  
+
   async listYoutubeVideos(userId: string) {
     this.loggerService.log(
       JSON.stringify({
         message: `listYoutubeVideos: ---------- Listing Videos for user ${userId} - Start ------------`,
       }),
     );
-  
+
     try {
       const user = await this.userService.getUserById(userId);
-  
+
       if (!user) {
         this.loggerService.log(
           JSON.stringify({
@@ -734,30 +745,30 @@ export class VideoService {
         );
         throw new HttpException('No user with this id', HttpStatus.NOT_FOUND);
       }
-  
+
       const accessToken = user.google_access_token;
-  
+
       const oauth2Client = new google.auth.OAuth2();
       oauth2Client.setCredentials({ access_token: accessToken });
-  
+
       const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-  
+
       const response = await youtube.search.list({
         part: ['id', 'snippet'],
         forMine: true,
         type: ['video'],
         maxResults: 20,
       });
-  
+
       this.loggerService.log(
         JSON.stringify({
           message: `listYoutubeVideos: Videos retrieved for user ${userId}`,
           data: response.data.items,
         }),
       );
-  
+
       const videoIds = response.data.items.map((item) => item.id.videoId);
-  
+
       if (videoIds.length === 0) {
         this.loggerService.log(
           JSON.stringify({
@@ -767,26 +778,26 @@ export class VideoService {
         console.log('No videos found.');
         return;
       }
-  
+
       const videoResponse = await youtube.videos.list({
         part: ['snippet', 'contentDetails', 'statistics'],
         id: videoIds,
       });
-  
+
       const transformedVideoResponse = videoResponse.data.items.map((item) => ({
         id: item.id,
         thumbnail: item.snippet.thumbnails,
         title: item.snippet.title,
         description: item.snippet.description,
       }));
-  
+
       this.loggerService.log(
         JSON.stringify({
           message: `listYoutubeVideos: Video details retrieved for user ${userId} - Completed`,
           data: transformedVideoResponse,
         }),
       );
-  
+
       return transformedVideoResponse;
     } catch (error) {
       this.loggerService.error(
@@ -800,5 +811,4 @@ export class VideoService {
       });
     }
   }
-  
 }
