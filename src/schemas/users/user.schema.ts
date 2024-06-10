@@ -52,6 +52,12 @@ export class User extends Document {
   @Prop({ type: String })
   google_refresh_token: string;
 
+  @Prop({ type: Boolean })
+  is_google_authenticated: boolean;
+
+  @Prop({ type: Boolean })
+  is_youtube_authenticated: boolean;
+
   @Prop({ type: [{ type: String, enum: ROLE }], default: [ROLE.USER] })
   roles: ROLE[];
 

@@ -153,6 +153,7 @@ export class AuthService {
     );
     try {
       const dbUser = await this.userModel.findOne({ email: body.email });
+      
       if (dbUser) {
         const payload = {
           sub: dbUser._id,
@@ -165,6 +166,8 @@ export class AuthService {
           _id: dbUser._id,
           roles: dbUser.roles,
           access_code: dbUser.access_code,
+          is_youtube_authenticated: dbUser.is_youtube_authenticated,
+          is_google_authenticated: dbUser.is_youtube_authenticated,
         };
         await dbUser.save();
         const token = await this.jwtService.signAsync(payload);
@@ -174,11 +177,9 @@ export class AuthService {
         email: body.email,
         name: body.name,
         google_id: body.id,
-        roles: dbUser.roles,
-        access_code: dbUser.access_code,
         google_access_token: body.accessToken,
         google_refresh_token: body.refreshToken,
-        phone: dbUser.phone,
+        is_google_authenticated: true,
         is_verified: true,
       });
       await newUser.save();
@@ -194,6 +195,8 @@ export class AuthService {
         phone: newUser.phone,
         _id: newUser._id,
         is_verified: newUser.is_verified,
+        is_google_authenticated: newUser.is_google_authenticated,
+        is_youtube_authenticated: newUser.is_youtube_authenticated,
       };
       const token = await this.jwtService.signAsync(payload);
 
@@ -223,6 +226,7 @@ export class AuthService {
 
       user.google_access_token = body.accessToken;
       user.google_refresh_token = body.refreshToken;
+      user.is_youtube_authenticated = true;
 
       await user.save();
 
@@ -235,6 +239,8 @@ export class AuthService {
         phone: user.phone,
         _id: user._id,
         is_verified: user.is_verified,
+        is_youtube_authenticated: user.is_youtube_authenticated,
+        is_google_authenticated: user.is_google_authenticated,
       };
 
       const token = await this.jwtService.signAsync(payload);

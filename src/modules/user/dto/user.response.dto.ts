@@ -47,6 +47,16 @@ export class UserResponseDto {
   @IsString()
   @IsNotEmpty()
   @Expose()
+  is_google_authenticated: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Expose()
+  is_youtube_authenticated: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Expose()
   roles: string;
 
   @IsString()
