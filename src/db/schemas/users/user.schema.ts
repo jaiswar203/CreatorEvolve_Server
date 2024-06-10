@@ -6,7 +6,7 @@ import {
   Model,
 } from 'mongoose';
 import { ROLE } from '@/common/constants/roles.enum';
-import { Video } from '@/schemas/videos/video.schema';
+import { Video } from '@/db/schemas/videos/video.schema';
 
 export type UserDocument = HydratedDocument<User>;
 

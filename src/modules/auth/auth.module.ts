@@ -3,7 +3,7 @@ import { AuthController } from './controller/auth.controller';
 import { AuthService } from './services/auth.service';
 import { UserModule } from '@/modules/user/user.module';
 import { MongooseModule } from '@nestjs/mongoose';
-import { User, UserSchema } from '@/schemas/users/user.schema';
+import { User, UserSchema } from '@/db/schemas/users/user.schema';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailModule } from '@/common/mail/mail.module';

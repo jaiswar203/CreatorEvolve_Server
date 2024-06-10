@@ -1,7 +1,7 @@
 import { Model, ObjectId } from 'mongoose';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { User } from '@/schemas/users/user.schema';
+import { User } from '@/db/schemas/users/user.schema';
 import { UserDto } from '../dto/user.request.dto';
 import * as bcrypt from 'bcrypt';
 import { auth } from 'googleapis/build/src/apis/oauth2';
