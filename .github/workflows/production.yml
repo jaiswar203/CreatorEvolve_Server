@@ -23,19 +23,16 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Copy production env
+        run: cp /home/ubuntu/.env .env.production
+        
       - name: Build and push Docker image
         run: |
           docker build -t jaiswar203/creatorevolve:latest .
           docker push jaiswar203/creatorevolve:latest
 
-      - name: SSH to EC2 and deploy
-        uses: appleboy/ssh-action@v0.1.5
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_KEY }}
-          script: |
-            docker pull creatorevolve/api:latest
-            docker stop api || true
-            docker rm api || true
-            docker run -d --name api -p 80:3000 creatorevolve/api:latest
+      - name: Run Docker container
+        run: docker compose up -d --build
+       
+      - name: Logout from Docker Hub
+        run: docker logout
