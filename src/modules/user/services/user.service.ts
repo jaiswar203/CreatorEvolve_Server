@@ -1,20 +1,14 @@
-import { Model } from 'mongoose';
+import { Model, ObjectId } from 'mongoose';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from '@/schemas/users/user.schema';
 import { UserDto } from '../dto/user.request.dto';
 import * as bcrypt from 'bcrypt';
-import { Role } from '@/schemas/users/role.schema';
-import { Permission } from '@/schemas/users/permission.schema';
-import { google } from 'googleapis';
+import { auth } from 'googleapis/build/src/apis/oauth2';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @InjectModel(User.name) private userModel: Model<User>,
-    @InjectModel(Role.name) private roleModel: Model<Role>,
-    @InjectModel(Permission.name) private permissionModel: Model<Permission>,
-  ) {}
+  constructor(@InjectModel(User.name) private userModel: Model<User>) {}
 
   async create(userData: UserDto) {
     const { email, password } = userData;
@@ -60,7 +54,7 @@ export class UserService {
 
   async refreshAccessToken(userId: string): Promise<string> {
     const user = await this.getUserById(userId);
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new auth.OAuth2();
     oauth2Client.setCredentials({
       refresh_token: user.google_refresh_token,
     });
@@ -88,12 +82,12 @@ export class UserService {
     };
   }
 
-  async getUserByGoogleId(googleId:string){
-    const user=await this.userModel.findOne({google_id:googleId})
+  async getUserByGoogleId(googleId: string) {
+    const user = await this.userModel.findOne({ google_id: googleId });
 
-    if(!user) return null
+    if (!user) return null;
 
-    return user
+    return user;
   }
 
   async getVideosList(userId: string) {
@@ -118,5 +112,16 @@ export class UserService {
     } catch (error) {
       console.log({ error });
     }
+  }
+
+  async verifyUserAccessCode(userId: ObjectId, accessCode: number) {
+    const user = await this.userModel
+      .findById(userId)
+      .select('access_code')
+      .lean();
+
+    if (user.access_code === accessCode) return true;
+
+    return false;
   }
 }

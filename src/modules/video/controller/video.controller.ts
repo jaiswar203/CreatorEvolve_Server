@@ -20,6 +20,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { editFileName } from '../utils/editFileName';
+import { Roles } from '@/common/decorators/role.decorator';
+import { ROLE } from '@/common/constants/roles.enum';
 
 @Controller('videos')
 @UseGuards(AuthGuard)
@@ -27,21 +29,25 @@ export class VideoController {
   constructor(private videoService: VideoService) {}
 
   @Get('')
+  @Roles(ROLE.USER)
   async getVideosList(@Req() req: any) {
     return await this.videoService.getVideosList(req.user.sub);
   }
 
   @Get('/:id')
-  async getVideosById(@Param('id') videoId: string) {
-    return await this.videoService.getVideoById(videoId);
+  @Roles(ROLE.USER)
+  async getVideosById(@Req() req: any, @Param('id') videoId: string) {
+    return await this.videoService.getVideoById(videoId, req.user.access_code);
   }
 
   @Post('tl/upload/youtube')
+  @Roles(ROLE.USER)
   async uploadYTVideoToTL(@Req() req: any, @Body() body: UploadVideoDTO) {
     return await this.videoService.uploadYTVideoToTL(req.user.sub, body);
   }
 
   @Post('tl/upload/file')
+  @Roles(ROLE.USER)
   @UseInterceptors(
     FileInterceptor('video', {
       storage: diskStorage({
@@ -58,6 +64,7 @@ export class VideoController {
   }
 
   @Get('tl/generate/gist/:id')
+  @Roles(ROLE.USER)
   async generateGistFromVideo(
     @Param('id') videoId: string,
     @Query('types') types: string,
@@ -70,6 +77,7 @@ export class VideoController {
   }
 
   @Get('tl/generate/text/:id')
+  @Roles(ROLE.USER)
   async generateTextFromVideo(
     @Param('id') videoId: string,
     @Query('prompt') prompt: string,
@@ -78,6 +86,7 @@ export class VideoController {
   }
 
   @Get('tl/generate/summary/:id')
+  @Roles(ROLE.USER)
   async generateSummaryFromVideo(
     @Param('id') videoId: string,
     @Query('prompt') prompt: TL_GENERATE_SUMMARY_TYPES,
@@ -89,6 +98,7 @@ export class VideoController {
   }
 
   @Get('tl/generate/chapters/:id')
+  @Roles(ROLE.USER)
   async generateChaptersFromVideo(
     @Param('id') videoId: string,
     @Query('prompt') prompt?: string,
@@ -100,6 +110,7 @@ export class VideoController {
   }
 
   @Get('tl/generate/highlights/:id')
+  @Roles(ROLE.USER)
   async generateHighlightsFromVideo(
     @Param('id') videoId: string,
     @Query('prompt') prompt: TL_GENERATE_SUMMARY_TYPES,
@@ -111,6 +122,7 @@ export class VideoController {
   }
 
   @Get('extract/:id')
+  @Roles(ROLE.USER)
   async extractShortContent(
     @Param('id') videoId: string,
     @Query('prompt') prompt?: string,
@@ -129,6 +141,7 @@ export class VideoController {
   }
 
   @Post('youtube/upload')
+  @Roles(ROLE.USER)
   @UseInterceptors(
     FileInterceptor('video', {
       storage: diskStorage({
@@ -145,11 +158,11 @@ export class VideoController {
     return this.videoService.uploadToYoutube(req.user.sub, videoDetails, video);
   }
 
+  @Get('youtube/list')
+  @Roles(ROLE.USER)
+  async getYoutubeVideosList(@Req() req: any) {
+    const userId = req.user.sub;
 
-  @Get("youtube/list")
-  async getYoutubeVideosList(@Req() req:any){
-    const userId=req.user.sub
-
-    return this.videoService.listYoutubeVideos(userId)
+    return this.videoService.listYoutubeVideos(userId);
   }
 }

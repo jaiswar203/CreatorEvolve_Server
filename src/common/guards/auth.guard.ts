@@ -2,17 +2,22 @@ import { ConfigService } from '@/common/config/services/config.service';
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { ROLE, roleHierarchy } from '../constants/roles.enum';
+import { ROLES_KEY } from '../decorators/role.decorator';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
+    private reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -25,9 +30,28 @@ export class AuthGuard implements CanActivate {
       const payload = await this.jwtService.verifyAsync(token, {
         secret: this.configService.get('JWT_SECRET'),
       });
+
       request['user'] = payload;
+      request['access_code'] = payload.access_code;
     } catch {
       throw new UnauthorizedException();
+    }
+
+    const requiredRoles = this.reflector.getAllAndOverride<ROLE[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!requiredRoles) {
+      return true;
+    }
+    const userRoles = request.user.roles;
+
+    const hasRole = requiredRoles.some((role) =>
+      userRoles.some((userRole) => roleHierarchy[userRole].includes(role)),
+    );
+
+    if (!hasRole) {
+      throw new ForbiddenException();
     }
 
     return true;
