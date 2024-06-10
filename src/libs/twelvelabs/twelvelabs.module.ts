@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { TLIndex, TLIndexSchema } from '@/schemas/services/tl.index.schema';
+import { TLIndex, TLIndexSchema } from '@/db/schemas/services/tl.index.schema';
 import { TwelveLabsService } from './services/twelvelabs.service';
 
 @Module({

@@ -12,7 +12,7 @@ import { LoggerService } from '@/common/logger/services/logger.service';
 import { UserService } from '@/modules/user/services/user.service';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Video } from '@/schemas/videos/video.schema';
+import { Video } from '@/db/schemas/videos/video.schema';
 import { TwelveLabsService } from 'libs/twelvelabs/services/twelvelabs.service';
 import { Model } from 'mongoose';
 import { join } from 'path';
@@ -650,12 +650,14 @@ export class VideoService {
     this.loggerService.log(
       JSON.stringify({
         message: `retrieveVideoIDFromTLAndSave: ---------- Retrieving Task Info for ${video.tl_task_id} - Completed ------------`,
+        data: videoInfo
       }),
     );
 
     video.tl_video_id = taskInfo.videoId as string;
-    video.metadata.width = videoInfo.metadata.width;
-    video.metadata.height = videoInfo.metadata.height;
+
+    video.metadata.width = videoInfo?.metadata?.width ?? 0;
+    video.metadata.height = videoInfo?.metadata?.height ?? 0;
 
     await video.save();
 

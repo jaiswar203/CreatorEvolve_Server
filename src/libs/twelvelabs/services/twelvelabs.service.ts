@@ -1,7 +1,7 @@
 import { TwelveLabs, GenerateSummarizeResult } from 'twelvelabs-js';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import { IENGINES, TLIndex } from '@/schemas/services/tl.index.schema';
+import { IENGINES, TLIndex } from '@/db/schemas/services/tl.index.schema';
 import { Model } from 'mongoose';
 import {
   TL_DEFAULT_GENERATE_TEXT_TYPE,
