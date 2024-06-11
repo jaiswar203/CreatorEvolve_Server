@@ -43,8 +43,7 @@ const appModules: NestModuleImport[] = [
       useFactory: async (configService: ConfigService) => {
         const host = configService.get<string>('REDIS_HOST');
         const port = configService.get<string>('REDIS_PORT');
-        const pass = configService.get<string>('REDIS_PASSWORD');
-        const url = `redis://default:${pass}@${host}:${port}`;
+        const url = `redis://${host}:${port}`;
         const store = await redisStore({
           url,
         });
