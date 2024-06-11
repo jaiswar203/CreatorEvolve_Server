@@ -650,14 +650,16 @@ export class VideoService {
     this.loggerService.log(
       JSON.stringify({
         message: `retrieveVideoIDFromTLAndSave: ---------- Retrieving Task Info for ${video.tl_task_id} - Completed ------------`,
-        data: videoInfo
       }),
     );
 
     video.tl_video_id = taskInfo.videoId as string;
 
-    video.metadata.width = videoInfo?.metadata?.width ?? 0;
-    video.metadata.height = videoInfo?.metadata?.height ?? 0;
+    video.metadata = {
+      width: videoInfo?.metadata?.width,
+      height: videoInfo?.metadata?.height,
+    };
+    
 
     await video.save();
 
