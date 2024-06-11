@@ -28,37 +28,37 @@ export class PublicController {
     @Headers('tl-signature') signature: string,
     @Req() req: RawBodyRequest<Request>,
   ) {
-    // if (!signature) {
-    //   throw new BadRequestException('Missing TL-Signature header');
-    // }
+    if (!signature) {
+      throw new BadRequestException('Missing TL-Signature header');
+    }
 
-    // const [tField, v1Field] = signature
-    //   .split(',')
-    //   .map((part) => part.split('=')[1]);
-    // const timestamp = tField;
-    // const providedSignature = v1Field;
+    const [tField, v1Field] = signature
+      .split(',')
+      .map((part) => part.split('=')[1]);
+    const timestamp = tField;
+    const providedSignature = v1Field;
 
-    // const rawBody = req.rawBody;
-    // const signedPayload = `${timestamp}.${rawBody}`;
-    // const generatedSignature = crypto
-    //   .createHmac(
-    //     'sha256',
-    //     this.configService.get('TWELVE_LABS_SIGNING_SECRET'),
-    //   )
-    //   .update(signedPayload)
-    //   .digest('hex');
+    const rawBody = req.rawBody;
+    const signedPayload = `${timestamp}.${rawBody}`;
+    const generatedSignature = crypto
+      .createHmac(
+        'sha256',
+        this.configService.get('TWELVE_LABS_SIGNING_SECRET'),
+      )
+      .update(signedPayload)
+      .digest('hex');
 
-    // this.loggerService.log(
-    //   JSON.stringify({
-    //     generatedSignature,
-    //     providedSignature,
-    //   }),
-    // );
+    this.loggerService.log(
+      JSON.stringify({
+        generatedSignature,
+        providedSignature,
+      }),
+    );
 
-    // if (generatedSignature !== providedSignature) {
-    //   this.loggerService.warn('Invalid signature');
-    //   throw new UnauthorizedException('Invalid signature');
-    // }
+    if (generatedSignature !== providedSignature) {
+      this.loggerService.warn('Invalid signature');
+      throw new UnauthorizedException('Invalid signature');
+    }
 
     this.loggerService.log(
       JSON.stringify({

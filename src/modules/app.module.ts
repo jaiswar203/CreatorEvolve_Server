@@ -13,7 +13,6 @@ import { HttpModule } from '@/common/http/http.module';
 import { PublicModule } from './public/public.module';
 
 import { redisStore } from 'cache-manager-redis-yet';
-import { MigrationService } from '@/db/migration.service';
 
 type NestModuleImport =
   | Type<any>
@@ -57,6 +56,5 @@ const appModules: NestModuleImport[] = [
     }),
     PublicModule,
   ],
-  providers:[MigrationService]
 })
 export class AppModule {}
