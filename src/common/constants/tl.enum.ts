@@ -1,4 +1,4 @@
-import { IENGINES } from '@/schemas/services/tl.index.schema';
+import { IENGINES } from '@/db/schemas/services/tl.index.schema';
 
 export enum TL_ENGINES {
   VISUAL = 'visual',
