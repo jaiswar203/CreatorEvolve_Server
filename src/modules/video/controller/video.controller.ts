@@ -22,22 +22,49 @@ import { diskStorage } from 'multer';
 import { editFileName } from '../utils/editFileName';
 import { Roles } from '@/common/decorators/role.decorator';
 import { ROLE } from '@/common/constants/roles.enum';
+import { VIDEO_QUALITY } from '@/common/constants/video.enum';
 
-@Controller('videos')
+@Controller('media/videos')
 @UseGuards(AuthGuard)
 export class VideoController {
   constructor(private videoService: VideoService) {}
 
   @Get('')
   @Roles(ROLE.USER)
-  async getVideosList(@Req() req: any) {
-    return await this.videoService.getVideosList(req.user.sub);
+  async getVideosList(@Req() req: any, @Query('tl') tl: string) {
+    return await this.videoService.getVideosList(req.user.sub, tl === 'true');
   }
 
   @Get('/:id')
   @Roles(ROLE.USER)
   async getVideosById(@Req() req: any, @Param('id') videoId: string) {
     return await this.videoService.getVideoById(videoId, req.user.access_code);
+  }
+
+  @Post('upload')
+  @Roles(ROLE.USER)
+  @UseInterceptors(
+    FileInterceptor('video', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: editFileName,
+      }),
+    }),
+  )
+  async uploadVideo(
+    @Req() req: any,
+    @UploadedFile() video: Express.Multer.File,
+  ) {
+    return this.videoService.uploadVideo(req.user.sub, video);
+  }
+
+  @Post('upload/url')
+  @Roles(ROLE.USER)
+  async uploadVideoUrl(
+    @Req() req: any,
+    @Body() body: UploadVideoDTO
+  ) {
+    return this.videoService.uploadVideoUrl(req.user.sub, body);
   }
 
   @Post('tl/upload/youtube')

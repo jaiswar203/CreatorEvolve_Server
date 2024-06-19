@@ -1,4 +1,4 @@
-import { TwelveLabs, GenerateSummarizeResult } from 'twelvelabs-js';
+import { TwelveLabs } from 'twelvelabs-js';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { IENGINES, TLIndex } from '@/db/schemas/services/tl.index.schema';

@@ -6,7 +6,9 @@ import {
   Model,
 } from 'mongoose';
 import { ROLE } from '@/common/constants/roles.enum';
-import { Video } from '@/db/schemas/videos/video.schema';
+import { Video } from '@/db/schemas/media/video.schema';
+import { Dubbing } from '../media/dubbing.schema';
+import { Audio } from '../media/audio.schema';
 
 export type UserDocument = HydratedDocument<User>;
 
@@ -64,22 +66,31 @@ export class User extends Document {
   @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Video' }] })
   videos: Video[];
 
+  @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Audio' }] })
+  audios: Audio[];
+
+  @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Dubbing' }] })
+  dubbings: Dubbing[];
+
   @Prop({ type: Number, unique: true })
   access_code: number;
+
+  @Prop({ type: String })
+  refresh_token: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
 
 // Function to generate a random 6-digit access code
-function generateAccessCode() {
+const generateAccessCode = () => {
   return Math.floor(100000 + Math.random() * 900000);
-}
+};
 
 // Function to check if an access code is unique
-async function isAccessCodeUnique(code, model) {
+const isAccessCodeUnique = async (code, model) => {
   const user = await model.findOne({ access_code: code });
   return !user;
-}
+};
 
 // Middleware to generate a unique access code before saving
 UserSchema.pre('save', async function (next) {

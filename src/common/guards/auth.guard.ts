@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { ROLE, roleHierarchy } from '../constants/roles.enum';
 import { ROLES_KEY } from '../decorators/role.decorator';
+import { SKIP_AUTH_KEY } from '../decorators/skip-auth.decorator';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -21,6 +22,15 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const skipAuth = this.reflector.getAllAndOverride<boolean>(SKIP_AUTH_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (skipAuth) {
+      return true;
+    }
+
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
 

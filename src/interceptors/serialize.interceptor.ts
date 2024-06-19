@@ -12,9 +12,9 @@ interface ClassConstructor {
   new (...args: any[]): {};
 }
 
-export function Serialize(dto: ClassConstructor) {
+export const Serialize = (dto: ClassConstructor) => {
   return UseInterceptors(new SerializeInterceptor(dto));
-}
+};
 
 export class SerializeInterceptor implements NestInterceptor {
   constructor(private dto: ClassConstructor) {}
