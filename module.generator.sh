@@ -8,11 +8,11 @@ if [ -z "$MODULE_NAME" ]; then
 fi
 
 # Generate the module
-nest g module modules/$MODULE_NAME
+npx nest g module modules/$MODULE_NAME
 
 # Generate the controller and service
-nest g controller modules/$MODULE_NAME/controller/$MODULE_NAME --flat
-nest g service modules/$MODULE_NAME/services/$MODULE_NAME --flat
+npx nest g controller modules/$MODULE_NAME/controller/$MODULE_NAME --flat
+npx nest g service modules/$MODULE_NAME/services/$MODULE_NAME --flat
 
 # # Create directories
 # mkdir -p src/modules/$MODULE_NAME/controllers

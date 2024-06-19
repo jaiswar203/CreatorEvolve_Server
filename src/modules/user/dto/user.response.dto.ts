@@ -47,6 +47,11 @@ export class UserResponseDto {
   @IsString()
   @IsNotEmpty()
   @Expose()
+  refresh_token: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Expose()
   is_google_authenticated: string;
 
   @IsString()

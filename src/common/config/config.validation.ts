@@ -26,4 +26,8 @@ export const validationSchema = Joi.object({
   AWS_ACCESS_KEY_ID: Joi.string().required(),
   AWS_REGION: Joi.string().required(),
   AWS_BUCKET_NAME: Joi.string().required(),
+  
+  
+  ELEVEN_LABS_API_KEY: Joi.string().required(),
+  ELEVEN_LABS_BASE_URL: Joi.string().required(),
 });

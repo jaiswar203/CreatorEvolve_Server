@@ -82,6 +82,20 @@ export class UserService {
     };
   }
 
+  async saveAudio(userId: string, audioId: string) {
+    await this.userModel.findByIdAndUpdate(
+      userId,
+      {
+        $push: { audios: audioId },
+      },
+      { new: true },
+    );
+
+    return {
+      success: true,
+    };
+  }
+
   async getUserByGoogleId(googleId: string) {
     const user = await this.userModel.findOne({ google_id: googleId });
 
@@ -90,7 +104,7 @@ export class UserService {
     return user;
   }
 
-  async getVideosList(userId: string) {
+  async getVideosList(userId: string, tl = false) {
     try {
       const user = await this.userModel
         .findById(userId)
@@ -108,7 +122,41 @@ export class UserService {
           HttpStatus.NOT_FOUND,
         );
 
-      return user.videos;
+      let videos = user.videos;
+      if (tl) {
+        videos = videos.filter(
+          (video) =>
+            video.tl_task_id !== undefined && video.tl_task_id !== null,
+        );
+      }
+
+      return videos;
+    } catch (error) {
+      console.log({ error });
+    }
+  }
+
+  async getAudiosList(userId: string) {
+    try {
+      const user = await this.userModel
+        .findById(userId)
+        .populate({
+          path: 'audios',
+          options: {
+            sort: { _id: -1 },
+          },
+        })
+        .lean();
+
+      if (!user)
+        throw new HttpException(
+          'User not exist with this _Id',
+          HttpStatus.NOT_FOUND,
+        );
+
+      let audios = user.audios;
+
+      return audios;
     } catch (error) {
       console.log({ error });
     }
@@ -123,5 +171,25 @@ export class UserService {
     if (user.access_code === accessCode) return true;
 
     return false;
+  }
+
+  async addDubbings(userId: string, dubbing_id: ObjectId) {
+    await this.userModel.findByIdAndUpdate(userId, {
+      $push: { dubbings: dubbing_id },
+    });
+
+    return true;
+  }
+
+  async getDubbings(userId: string) {
+    const userInfo = await this.userModel.findById(userId).populate({
+      path: 'dubbings',
+      options: {
+        sort: { _id: -1 },
+      },
+      select: 'name created_at url media_key target_languages status',
+    });
+
+    return userInfo.toObject().dubbings;
   }
 }

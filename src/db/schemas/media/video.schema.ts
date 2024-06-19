@@ -49,6 +49,9 @@ export class Video extends Document {
 
   @Prop({ type: Date, default: Date.now() })
   updated_at: Date;
+
+  @Prop({ type: [{ type: MongooseSchema.Types.ObjectId }], ref: 'Dubbing',default:[] })
+  dubbings: MongooseSchema.Types.ObjectId[];
 }
 
 export const VideoSchema = SchemaFactory.createForClass(Video);

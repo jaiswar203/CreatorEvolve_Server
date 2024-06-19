@@ -35,3 +35,9 @@ export interface IFormattedDataResponse {
     summary: string;
   }[];
 }
+
+
+export enum VIDEO_QUALITY{
+  HIGH="high",
+  LOW="low"
+}

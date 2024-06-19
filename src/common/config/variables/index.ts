@@ -12,6 +12,8 @@ export const aiServices = registerAs('AI_SERVICE', () => ({
   TWELVE_LABS_API_KEY: process.env['TL_API_KEY'],
   TWELVE_LABS_BASE_URL: process.env['TWELVE_LABS_BASE_URL'],
   TWELVE_LABS_SIGNING_SECRET: process.env['TWELVE_LABS_SIGNING_SECRET'],
+  ELEVEN_LABS_API_KEY: process.env['ELEVEN_LABS_API_KEY'],
+  ELEVEN_LABS_BASE_URL: process.env['ELEVEN_LABS_BASE_URL'],
   OPEN_AI_API_KEY: process.env['OPEN_AI_API_KEY'],
   PERPLEXITY_API_KEY: process.env['PERPLEXITY_API_KEY'],
 }));

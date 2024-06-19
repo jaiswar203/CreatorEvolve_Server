@@ -19,5 +19,13 @@ export class AIServiceConfigDTO{
 
     @IsString()
     @IsNotEmpty()
+    ELEVEN_LABS_API_KEY:string
+
+    @IsString()
+    @IsNotEmpty()
+    ELEVEN_LABS_BASE_URL:string
+
+    @IsString()
+    @IsNotEmpty()
     PERPLEXITY_API_KEY:string
 }

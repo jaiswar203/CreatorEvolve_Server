@@ -6,29 +6,27 @@ import {
 import {
   CHAPTER_CUSTOM_PROMPT,
   IFormattedDataResponse,
+  VIDEO_QUALITY,
   VIDEO_TYPES,
 } from '@/common/constants/video.enum';
 import { LoggerService } from '@/common/logger/services/logger.service';
 import { UserService } from '@/modules/user/services/user.service';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Video } from '@/db/schemas/videos/video.schema';
-import { TwelveLabsService } from 'libs/twelvelabs/services/twelvelabs.service';
+import { Video } from '@/db/schemas/media/video.schema';
+import { TwelveLabsService } from '@/libs/twelvelabs/services/twelvelabs.service';
 import { Model } from 'mongoose';
 import { join } from 'path';
 import { unlink } from 'fs/promises';
 import { UploadVideoDTO } from '../dto/upload-video.dtio';
-import { createReadStream, createWriteStream, readFileSync } from 'fs';
+import { createReadStream, readFileSync } from 'fs';
 import { StorageService } from '@/common/storage/services/storage.service';
-import { HttpService } from '@/common/http/services/http.service';
-import * as ytdl from 'ytdl-core';
 
-import { lastValueFrom } from 'rxjs';
 import { ISegmentCrop, VideoProcessorService } from './processor.service';
 import {
   CHAT_COMPLETION_RESPONSE_FORMAT,
   OpenAIService,
-} from 'libs/openai/services/openai.service';
+} from '@/libs/openai/services/openai.service';
 
 import { auth } from 'googleapis/build/src/apis/oauth2';
 import { youtube as _youtube } from 'googleapis/build/src/apis/youtube';
@@ -41,13 +39,12 @@ export class VideoService {
     private readonly userService: UserService,
     private readonly loggerService: LoggerService,
     private readonly storageService: StorageService,
-    private readonly httpService: HttpService,
     private readonly videoProcessorService: VideoProcessorService,
     private readonly openAIService: OpenAIService,
   ) {}
 
-  async getVideosList(userId: string) {
-    const videos = await this.userService.getVideosList(userId);
+  async getVideosList(userId: string, tl: boolean) {
+    const videos = await this.userService.getVideosList(userId, tl);
 
     return responseGenerator('Videos Fetched', videos);
   }
@@ -78,6 +75,163 @@ export class VideoService {
         : video.url;
 
     return { ...video, url: videoUrl };
+  }
+
+  async uploadVideo(userId: string, video: Express.Multer.File) {
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'uploadVideo: Start',
+          data: { userId, video: video.originalname },
+        }),
+      );
+
+      const videoPath = join(
+        __dirname,
+        '..',
+        '..',
+        '../..',
+        'uploads',
+        video.filename,
+      );
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'uploadVideo: Video Path',
+          data: videoPath,
+        }),
+      );
+
+      const fileBuffer = readFileSync(videoPath);
+
+      const s3ImageFilePath =
+        await this.videoProcessorService.extractThumbnail(videoPath);
+
+      // Saving video in s3
+      const s3FilePath = await this.storageService.upload(
+        fileBuffer,
+        video.originalname,
+        video.mimetype,
+      );
+
+      await unlink(videoPath);
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'uploadVideo: Video uploaded to S3',
+          data: s3FilePath,
+        }),
+      );
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'uploadVideo: Thumbnail extracted',
+          data: s3ImageFilePath,
+        }),
+      );
+
+      const videoDoc = new this.videoModel({
+        user_id: userId,
+        type: VIDEO_TYPES.FILE_UPLOAD,
+        name: video?.originalname || '',
+        url: s3FilePath,
+        thumbnail: s3ImageFilePath,
+      });
+
+      const savedVideo = await videoDoc.save();
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'uploadVideo: Video document saved in DB',
+          data: savedVideo,
+        }),
+      );
+
+      const user = await this.userService.saveVideo(
+        userId,
+        videoDoc._id as string,
+      );
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'uploadVideo: Video linked to user',
+          data: user,
+        }),
+      );
+
+      const s3ViewUrl = this.storageService.get(videoDoc.url);
+      const s3ThumbnailUrl = this.storageService.get(videoDoc.thumbnail);
+
+      return responseGenerator('Video uploaded', {
+        ...videoDoc.toObject(),
+        url: s3ViewUrl,
+        thumbnail: s3ThumbnailUrl,
+      });
+    } catch (error) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'uploadVideo: Error occurred',
+          error,
+        }),
+      );
+      throw new HttpException('Error occurred', HttpStatus.BAD_GATEWAY, {
+        cause: error,
+      });
+    }
+  }
+
+  async uploadVideoUrl(
+    userId: string,
+    body: UploadVideoDTO
+  ) {
+    const { url } = body;
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'uploadVideoUrl: Start',
+          data: url,
+        }),
+      );
+
+      const video = new this.videoModel({
+        user_id: userId,
+        type: VIDEO_TYPES.YOUTUBE,
+        thumbnail: body.thumbnail,
+        name: body.name,
+        url,
+      });
+
+      await video.save();
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'uploadVideoUrl: Video document saved in DB',
+          data: video,
+        }),
+      );
+
+      const user = await this.userService.saveVideo(
+        userId,
+        video._id as string,
+      );
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'uploadVideoUrl: Video linked to user',
+          data: user,
+        }),
+      );
+
+      return responseGenerator('Video uploaded', video.toObject());
+    } catch (error) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'uploadVideoUrl: Error occurred',
+          error,
+        }),
+      );
+      throw new HttpException('Error occurred', HttpStatus.BAD_GATEWAY);
+    }
   }
 
   async uploadYTVideoToTL(userId: string, body: UploadVideoDTO) {
@@ -483,11 +637,14 @@ export class VideoService {
 
       if (fileType === VIDEO_TYPES.YOUTUBE) {
         const filename = `${Date.now()}-video.mp4`;
-        videoPath = await this.downloadVideo(storageUrl, filename);
+        videoPath = await this.storageService.downloadVideo(
+          storageUrl,
+          filename,
+        );
       } else {
         storageUrl = this.storageService.get(url);
         videoExtention = url.split('.').pop().split(/\#|\?/)[0];
-        videoPath = await this.downloadVideo(storageUrl, url);
+        videoPath = await this.storageService.downloadVideo(storageUrl, url);
       }
 
       const videoSegments = await this.generateTextFromVideo(
@@ -540,46 +697,6 @@ export class VideoService {
       throw new HttpException('Error occured', HttpStatus.BAD_GATEWAY, {
         cause: error,
       });
-    }
-  }
-
-  async downloadVideo(url: string, filename: string): Promise<string> {
-    if (!url) return;
-    try {
-      let videoPath = join(__dirname, '..', '..', '../..', 'uploads', filename);
-      let writer = createWriteStream(videoPath);
-
-      if (ytdl.validateURL(url)) {
-        // If the URL is a YouTube URL, use ytdl-core to download the video
-        const youtubeStream = ytdl(url, {
-          quality: 'highest',
-          filter: 'audioandvideo',
-        });
-        youtubeStream.pipe(writer);
-      } else {
-        // For other URLs, use the existing HTTP download logic
-        const response = await lastValueFrom(
-          this.httpService.get(url, {
-            responseType: 'stream',
-          }),
-        );
-
-        response.data.pipe(writer);
-      }
-
-      // Return a promise that resolves when the file is fully written
-      return new Promise((resolve, reject) => {
-        writer.on('finish', () => resolve(videoPath));
-        writer.on('error', (error) => reject(error));
-      });
-    } catch (error) {
-      this.loggerService.error(
-        JSON.stringify({
-          message: 'Error downloading video:',
-          error,
-        }),
-      );
-      throw new Error(JSON.stringify(error));
     }
   }
 
@@ -659,7 +776,6 @@ export class VideoService {
       width: videoInfo?.metadata?.width,
       height: videoInfo?.metadata?.height,
     };
-    
 
     await video.save();
 
