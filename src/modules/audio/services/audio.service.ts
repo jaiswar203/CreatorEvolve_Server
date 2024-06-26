@@ -3,7 +3,7 @@ import { Video } from '@/db/schemas/media/video.schema';
 import { ElevenLabsService } from '@/libs/elevenlabs/services/elevenlabs.service';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import mongoose, { Model, Schema } from 'mongoose';
+import mongoose, { Model, ObjectId, Schema } from 'mongoose';
 import { DubRequestDto } from '../dub.request.dto';
 import { LoggerService } from '@/common/logger/services/logger.service';
 import { Dubbing } from '@/db/schemas/media/dubbing.schema';
@@ -23,6 +23,15 @@ import { readFileSync } from 'fs';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { VIDEO_TYPES } from '@/common/constants/video.enum';
+import { TextToSpeechDTO } from '../dto/text-to-speech.dto';
+import { v4 as uuid } from 'uuid';
+import { EL_VOICE_TYPE, Voice } from '@/db/schemas/media/voice.schema';
+import { InstantVoiceCloneDto } from '../dto/instant-clone.dto';
+import { GenerateVoiceDto } from '../dto/random-voice.dto';
+import { SaveRandomGeneratedVoiceDto } from '../dto/save-random-voice.dto';
+import { MailService } from '@/common/mail/services/mail.service';
+import { Inquiry, InquiryTypes } from '@/db/schemas/inquiries/inquiry.schema';
+import { ProfessionalVoiceCloneInquiryDto } from '../dto/professiona-voice-clone-inqury.dto';
 
 @Injectable()
 export class AudioService {
@@ -32,21 +41,73 @@ export class AudioService {
     private loggerService: LoggerService,
     private userService: UserService,
     private eventEmitter: EventEmitter2,
+    private mailService: MailService,
     @InjectModel(Video.name) private videoModel: Model<Video>,
     @InjectModel(Audio.name) private audioModel: Model<Audio>,
     @InjectModel(Dubbing.name) private dubbingModel: Model<Dubbing>,
+    @InjectModel(Voice.name) private voiceModel: Model<Voice>,
+    @InjectModel(Inquiry.name) private inquiryModel: Model<Inquiry>,
     @InjectQueue(DUBBING_QUEUE) private dubbingQueue: Queue,
   ) {}
 
-  async getVoicesList() {
+  async getVoicesList(userId) {
     this.loggerService.log(
       JSON.stringify({ message: 'getVoicesList: Fetching voices list' }),
     );
+
     try {
       const voices = await this.elevenLabsService.getVoicesList();
+
+      const userGeneratedVoice = await this.voiceModel
+        .find({ user_id: userId })
+        .lean();
+
+      const voicesids = new Set(
+        userGeneratedVoice.map((voice) => voice.el_voice_id),
+      );
+
+      const { privateVoices, publicVoices } = voices.reduce(
+        (result, voice) => {
+          if (voicesids.has(voice.id)) {
+            result.privateVoices.push(voice);
+          } else {
+            result.publicVoices.push(voice);
+          }
+          return result;
+        },
+        { privateVoices: [], publicVoices: [] },
+      );
+
       this.loggerService.log(
         JSON.stringify({
           message: 'getVoicesList: Voices list fetched successfully',
+          data: { privateVoices, publicVoices },
+        }),
+      );
+
+      return { private: privateVoices, public: publicVoices };
+    } catch (error) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'getVoicesList: Failed to fetch voices list',
+          error,
+        }),
+      );
+      throw new HttpException('Server failed', HttpStatus.BAD_GATEWAY, {
+        cause: error,
+      });
+    }
+  }
+
+  async getSharedVoicesList() {
+    this.loggerService.log(
+      JSON.stringify({ message: 'getSharedVoicesList: Fetching voices list' }),
+    );
+    try {
+      const voices = await this.elevenLabsService.getSharedVoicesList();
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'getSharedVoicesList: Voices list fetched successfully',
           data: voices,
         }),
       );
@@ -54,7 +115,44 @@ export class AudioService {
     } catch (error) {
       this.loggerService.error(
         JSON.stringify({
-          message: 'getVoicesList: Failed to fetch voices list',
+          message: 'getSharedVoicesList: Failed to fetch voices list',
+          error,
+        }),
+      );
+      throw new HttpException('Server failed', HttpStatus.BAD_GATEWAY, {
+        cause: error,
+      });
+    }
+  }
+
+  async addSharedVoiceInLibrary(
+    public_owner_id: string,
+    voice_id: string,
+    name: string,
+  ) {
+    this.loggerService.log(
+      `addSharedVoiceInLibrary: Adding voice ${voice_id} for public owner ${public_owner_id}`,
+    );
+    try {
+      const resp = await this.elevenLabsService.addSharedVoiceInLibrary(
+        public_owner_id,
+        voice_id,
+        name,
+      );
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: `addSharedVoiceInLibrary: Successfully added voice ${voice_id} for public owner ${public_owner_id}`,
+          data: resp,
+        }),
+      );
+
+      return resp;
+    } catch (error) {
+      console.log({ error });
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'addSharedVoiceInLibrary: Error occurred',
           error,
         }),
       );
@@ -473,6 +571,48 @@ export class AudioService {
     }
   }
 
+  async textToSpeech(userId: string, body: TextToSpeechDTO) {
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: `textToSpeech: Starting text to speech conversion for user ${userId}`,
+          data: body,
+        }),
+      );
+
+      const responseStream =
+        await this.elevenLabsService.createTextToSpeech(body);
+      this.loggerService.log(
+        'textToSpeech: Successfully created text to speech stream',
+      );
+
+      const fileName = `${userId}-${uuid()}.mp3`;
+      this.loggerService.log(`textToSpeech: Generated file name ${fileName}`);
+
+      const s3FilePath = await this.storageService.uploadStream(
+        responseStream,
+        fileName,
+        'audio/mp3',
+      );
+      this.loggerService.log(
+        `textToSpeech: Successfully uploaded file to S3 at path ${s3FilePath}`,
+      );
+
+      return s3FilePath;
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message:
+            'textToSpeech: Error occurred during text to speech conversion',
+          error: error.message,
+        }),
+      );
+      throw new HttpException('Server failed', HttpStatus.BAD_GATEWAY, {
+        cause: error,
+      });
+    }
+  }
+
   async getDubbings(userId: string) {
     this.loggerService.log(
       JSON.stringify({
@@ -546,7 +686,6 @@ export class AudioService {
       );
       return responseGenerator('Deleted');
     } catch (error) {
-      console.log({ error });
       this.loggerService.error(
         JSON.stringify({
           message: 'removeDubbing: Error occurred while removing dubs',
@@ -556,6 +695,351 @@ export class AudioService {
       throw new HttpException('Server failed', HttpStatus.BAD_GATEWAY, {
         cause: error,
       });
+    }
+  }
+
+  async instantCloneVoice(userId: string, body: InstantVoiceCloneDto) {
+    const { labels, name, description, files } = body;
+    this.loggerService.log(
+      JSON.stringify({
+        message: 'instantCloneVoice: Starting voice cloning process',
+        userId,
+        requestData: body,
+      }),
+    );
+
+    let tempFilePaths: string[] = [];
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'instantCloneVoice: Transforming labels array to object',
+        }),
+      );
+
+      const labelObj = {};
+      labels.forEach((label) => {
+        labelObj[label.key] = label.value;
+      });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message:
+            'instantCloneVoice: Calling ElevenLabs service to clone voice',
+          data: { name, description, files, labels: labelObj },
+        }),
+      );
+
+      // Download files from S3 and save them temporarily
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'instantCloneVoice: Downloading files from S3',
+          files,
+        }),
+      );
+
+      for (const s3Key of files) {
+        const fileUrl = this.storageService.get(s3Key);
+        const tempFilePath =
+          await this.storageService.downloadFileFromUrl(fileUrl);
+        tempFilePaths.push(tempFilePath);
+      }
+
+      this.loggerService.log(
+        JSON.stringify({
+          message:
+            'instantCloneVoice: Calling ElevenLabs service to clone voice',
+          data: { name, description, files: tempFilePaths, labels: labelObj },
+        }),
+      );
+
+      const resp = await this.elevenLabsService.instantVoiceClone({
+        name,
+        files: tempFilePaths,
+        description,
+        labels: labelObj,
+      });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message:
+            'instantCloneVoice: Voice cloned successfully from ElevenLabs',
+          response: resp,
+        }),
+      );
+
+      const voice = new this.voiceModel({
+        name,
+        description,
+        labels: labelObj,
+        files,
+        el_voice_id: resp?.voice_id,
+        el_voice_type: EL_VOICE_TYPE.INSTANT,
+        user_id: userId,
+      });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'instantCloneVoice: Saving voice data to database',
+          voice,
+        }),
+      );
+
+      await voice.save();
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'instantCloneVoice: Adding voice to user profile',
+          userId,
+          voiceId: voice.id,
+        }),
+      );
+
+      await this.userService.addVoice(userId, voice._id as ObjectId);
+
+      this.loggerService.log(
+        JSON.stringify({
+          message:
+            'instantCloneVoice: Voice cloning process completed successfully',
+          userId,
+          voiceId: voice.id,
+        }),
+      );
+
+      return voice;
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message:
+            'instantCloneVoice: Error occurred during voice cloning process',
+          error: error?.message,
+        }),
+      );
+      throw new HttpException('Server failed', HttpStatus.BAD_GATEWAY, {
+        cause: error,
+      });
+    } finally {
+      // Clean up temporary files
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'instantCloneVoice: Cleaning up temporary files',
+          tempFilePaths,
+        }),
+      );
+
+      for (const filePath of tempFilePaths) {
+        await unlink(filePath);
+      }
+    }
+  }
+
+  async getRandonVoiceGenerationParams() {
+    try {
+      const resp = await this.elevenLabsService.getRandomVoiceGenerationParam();
+
+      return resp;
+    } catch (error) {
+      this.loggerService.error(
+        JSON.stringify({
+          message:
+            'getRandonVoiceGenerationParams: Error occurred while removing dubs',
+          error,
+        }),
+      );
+      throw new HttpException('Server failed', HttpStatus.BAD_GATEWAY, {
+        cause: error,
+      });
+    }
+  }
+
+  async generateRandomVoice(userId: string, body: GenerateVoiceDto) {
+    try {
+      this.loggerService.log('generateRandomVoice: Start of function');
+
+      this.loggerService.log(
+        `generateRandomVoice: Calling generateRandomVoice with body: ${JSON.stringify(body)}`,
+      );
+      const response = await this.elevenLabsService.generateRandomVoice(body);
+      this.loggerService.log(
+        'generateRandomVoice: Successfully created text to speech stream',
+      );
+
+      const fileName = `${userId}-${uuid()}.mp3`;
+      this.loggerService.log(
+        `generateRandomVoice: Generated file name ${fileName}`,
+      );
+
+      this.loggerService.log(`generateRandomVoice: Uploading file to S3`);
+      const s3FilePath = await this.storageService.uploadStream(
+        response.data,
+        fileName,
+        'audio/mp3',
+      );
+      this.loggerService.log(
+        `generateRandomVoice: Successfully uploaded file to S3 at path ${s3FilePath}`,
+      );
+
+      this.loggerService.log('generateRandomVoice: End of function');
+      return { preview: s3FilePath, voice_id: response.id };
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message:
+            'generateRandomVoice: Error occurred while generating random voice',
+          error,
+        }),
+      );
+      throw new HttpException(
+        error.message ?? ' Server failed',
+        HttpStatus.BAD_GATEWAY,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async saveRandomGeneratedVoice(
+    userId: string,
+    body: SaveRandomGeneratedVoiceDto,
+  ) {
+    this.loggerService.log(
+      JSON.stringify({
+        message: 'saveRandomGeneratedVoice: Start of function',
+      }),
+    );
+
+    const { labels } = body;
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'saveRandomGeneratedVoice: Processing labels',
+          data: labels,
+        }),
+      );
+
+      const labelObj = {};
+      labels.forEach((label) => {
+        labelObj[label.key] = label.value;
+      });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'saveRandomGeneratedVoice: Transformed labels object',
+          data: labelObj,
+        }),
+      );
+
+      this.loggerService.log(
+        JSON.stringify({
+          message:
+            'saveRandomGeneratedVoice: Sending request to elevenLabsService',
+        }),
+      );
+      const resp = await this.elevenLabsService.saveRandomGeneratedVoice({
+        ...body,
+        labels: labelObj,
+      });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message:
+            'saveRandomGeneratedVoice: Received response from elevenLabsService',
+          data: resp,
+        }),
+      );
+
+      const fileKey = this.storageService.extractFileNameFromS3Url(
+        body.preview_url,
+      );
+
+      const voice = new this.voiceModel({
+        name: body.voice_name,
+        description: body.voice_description,
+        labels: labelObj,
+        files: [fileKey],
+        el_voice_id: resp?.voice_id,
+        el_voice_type: EL_VOICE_TYPE.GENERATED,
+        user_id: userId,
+      });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'saveRandomGeneratedVoice: Saving new voice model',
+        }),
+      );
+      await voice.save();
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'saveRandomGeneratedVoice: Adding voice to user',
+        }),
+      );
+      await this.userService.addVoice(userId, voice._id as ObjectId);
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'saveRandomGeneratedVoice: End of function',
+        }),
+      );
+      return resp;
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message:
+            'saveRandomGeneratedVoice: Error occurred while saving random generated voice',
+          error: error.message,
+        }),
+      );
+
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'Detailed error',
+          error: error.stack,
+        }),
+      );
+
+      throw new HttpException(
+        error.message ?? 'Server failed',
+        HttpStatus.BAD_GATEWAY,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async professionalVoiceCloning(
+    userId: string,
+    body: ProfessionalVoiceCloneInquiryDto,
+  ) {
+    const { email, name } = body;
+    try {
+      const inqury = new this.inquiryModel({
+        user_id: userId,
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+        message: `Inquiry for Professional Voice Clone Service by ${body.email}`,
+        type: InquiryTypes.PROFESSIONAL_VOICE_CLONE
+      });
+      await inqury.save();
+
+      await this.mailService.sendInquiry({
+        email,
+        name,
+        subject: 'Your Inquiry Has Been Received - CreatorEvolve',
+        type: InquiryTypes.PROFESSIONAL_VOICE_CLONE,
+      });
+
+      return 'Success';
+    } catch (error: any) {
+      throw new HttpException(
+        error.message ?? 'Server failed',
+        HttpStatus.BAD_GATEWAY,
+        {
+          cause: error,
+        },
+      );
     }
   }
 

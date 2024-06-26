@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { MailService } from './services/mail.service';
 import { join } from 'path';
 import { ConfigService } from '../config/services/config.service';
+import { BullModule } from '@nestjs/bull';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { ConfigService } from '../config/services/config.service';
         },
         template: {
           dir: join(__dirname, 'templates'),
-          adapter: new PugAdapter(), // or new PugAdapter() or new EjsAdapter()
+          adapter: new PugAdapter(),
           options: {
             strict: true,
           },
@@ -31,8 +32,11 @@ import { ConfigService } from '../config/services/config.service';
       }),
       inject: [ConfigService],
     }),
+    BullModule.registerQueue({
+      name: 'mail',
+    }),
   ],
   providers: [MailService],
-  exports: [MailService], // 👈 export for DI
+  exports: [MailService],
 })
 export class MailModule {}

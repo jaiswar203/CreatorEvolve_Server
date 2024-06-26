@@ -22,7 +22,6 @@ import { diskStorage } from 'multer';
 import { editFileName } from '../utils/editFileName';
 import { Roles } from '@/common/decorators/role.decorator';
 import { ROLE } from '@/common/constants/roles.enum';
-import { VIDEO_QUALITY } from '@/common/constants/video.enum';
 
 @Controller('media/videos')
 @UseGuards(AuthGuard)

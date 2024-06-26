@@ -21,8 +21,10 @@
       "@/common/*": ["./common/*"],
       "@/modules/*": ["./modules/*"],
       "@/db/*": ["./db/*"],
-      "@/libs/*": ["./libs/*"],
+      "@/libs/*": ["./libs/*"]
     },
     "strict": true
-  }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,0 +1,108 @@
+doctype html
+html(lang="en")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1.0")
+    title Inquiry Received
+    style.
+      :root {
+         --background: 0 0% 100%;
+        --foreground: 240 10% 3.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 240 10% 3.9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 240 10% 3.9%;
+        --primary: 240 5.9% 10%;
+        --primary-foreground: 0 0% 98%;
+        --secondary: 240 4.8% 95.9%;
+        --secondary-foreground: 240 5.9% 10%;
+        --muted: 240 4.8% 95.9%;
+        --muted-foreground: 240 3.8% 46.1%;
+        --accent: 240 4.8% 95.9%;
+        --accent-foreground: 240 5.9% 10%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 5.9% 90%;
+        --input: 240 5.9% 90%;
+        --ring: 240 5.9% 10%;
+        --radius: 0.5rem;
+      }
+      body {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        background-color: var(--background);
+        color: var(--foreground);
+        padding: 20px;
+        margin: 0;
+      }
+      .container {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: var(--card);
+        padding: 20px;
+        border-radius: var(--radius);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+      .header {
+        background-color: var(--primary);
+        color: var(--primary-foreground);
+        text-align: center;
+        padding: 20px 0;
+        border-top-left-radius: var(--radius);
+        border-top-right-radius: var(--radius);
+      }
+      .header img {
+        width: 80px;
+        height: auto;
+        margin-bottom: 10px;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: normal;
+      }
+      .content {
+        padding: 30px 20px;
+        text-align: left;
+      }
+      .content h2 {
+        margin: 0 0 10px 0;
+        font-size: 22px;
+        color: var(--primary);
+      }
+      .content p {
+        font-size: 16px;
+        color: var(--foreground);
+        margin: 0 0 20px 0;
+        line-height: 1.6;
+      }
+      .footer {
+        background-color: var(--secondary);
+        text-align: center;
+        padding: 20px 0;
+        border-bottom-left-radius: var(--radius);
+        border-bottom-right-radius: var(--radius);
+        font-size: 12px;
+        color: var(--secondary-foreground);
+      }
+      .footer p {
+        margin: 0;
+      }
+  body
+    .container
+      .header
+        img(src="https://res.cloudinary.com/dykwfe4cr/image/upload/v1716968575/icon_ws4oad.webp" alt="Icon")
+        h1 CreatorEvolve
+      .content
+        h2 Inquiry Received
+        p Dear #{name},
+        p Thank you for reaching out to us regarding the creation of a professional cloned voice. We have received your inquiry and our team will be in touch with you shortly to assist you with the next steps.
+        p If you have any additional questions or need further assistance in the meantime, please feel free to reply to this email or contact us at [Your Contact Information].
+        p We appreciate your interest and look forward to helping you create a professional cloned voice.
+        p Best regards,
+        p Nilesh Jaiswar
+        p Founder/Developer
+        p CreatorEvolve
+      .footer
+        p &copy; 2024 CreatorEvolve. All rights reserved.

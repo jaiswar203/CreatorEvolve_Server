@@ -61,6 +61,15 @@ export class AuthService {
       sub: user._id,
       roles: user.roles,
       access_code: user.access_code,
+      google_id: user.google_id,
+      name: user.name,
+      email: user.email,
+      credits: user.credits,
+      phone: user.phone,
+      _id: user._id,
+      is_verified: user.is_verified,
+      is_google_authenticated: user.is_google_authenticated,
+      is_youtube_authenticated: user.is_youtube_authenticated,
     };
 
     this.loggerService.log(
@@ -153,7 +162,7 @@ export class AuthService {
     );
     try {
       const dbUser = await this.userModel.findOne({ email: body.email });
-      
+
       if (dbUser) {
         const payload = {
           sub: dbUser._id,
