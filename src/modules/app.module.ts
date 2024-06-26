@@ -14,6 +14,9 @@ import { PublicModule } from './public/public.module';
 
 import { redisStore } from 'cache-manager-redis-yet';
 import { AudioModule } from './audio/audio.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { StorageModule } from '@/common/storage/storage.module';
 
 type NestModuleImport =
   | Type<any>
@@ -55,7 +58,10 @@ const appModules: NestModuleImport[] = [
       inject: [ConfigService],
     }),
     PublicModule,
-    AudioModule
+    AudioModule,
+    StorageModule
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

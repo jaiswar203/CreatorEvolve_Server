@@ -173,9 +173,9 @@ export class UserService {
     return false;
   }
 
-  async addDubbings(userId: string, dubbing_id: ObjectId) {
+  async addDubbings(userId: string, dubbingId: ObjectId) {
     await this.userModel.findByIdAndUpdate(userId, {
-      $push: { dubbings: dubbing_id },
+      $push: { dubbings: dubbingId },
     });
 
     return true;
@@ -191,5 +191,11 @@ export class UserService {
     });
 
     return userInfo.toObject().dubbings;
+  }
+
+  async addVoice(userId: string, voiceId: ObjectId) {
+    await this.userModel.findByIdAndUpdate(userId, {
+      $push: { voices: voiceId },
+    });
   }
 }

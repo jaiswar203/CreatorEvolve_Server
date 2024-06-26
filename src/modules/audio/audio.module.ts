@@ -14,6 +14,9 @@ import { DUBBING_QUEUE } from '@/common/constants/queue.contant';
 import { UserModule } from '../user/user.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Audio, AudioSchema } from '@/db/schemas/media/audio.schema';
+import { Voice, VoiceSchema } from '@/db/schemas/media/voice.schema';
+import { MailModule } from '@/common/mail/mail.module';
+import { Inquiry, InquirySchema } from '@/db/schemas/inquiries/inquiry.schema';
 
 @Module({
   imports: [
@@ -33,6 +36,14 @@ import { Audio, AudioSchema } from '@/db/schemas/media/audio.schema';
         name: Dubbing.name,
         schema: DubbingSchema,
       },
+      {
+        name: Voice.name,
+        schema: VoiceSchema,
+      },
+      {
+        name: Inquiry.name,
+        schema: InquirySchema,
+      },
     ]),
     BullModule.forRootAsync({
       useFactory: async (configService: ConfigService) => ({
@@ -45,6 +56,7 @@ import { Audio, AudioSchema } from '@/db/schemas/media/audio.schema';
     }),
     BullModule.registerQueue({ name: DUBBING_QUEUE }),
     UserModule,
+    MailModule
   ],
   controllers: [AudioController],
   providers: [AudioService, JwtService, DubbingConsumer],
