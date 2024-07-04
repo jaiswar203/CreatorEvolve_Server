@@ -7,7 +7,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {  memoryStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { AppService } from './app.service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -28,5 +28,4 @@ export class AppController {
     file.filename = modifiedFilename;
     return this.appService.uploadFile(file);
   }
-  
 }

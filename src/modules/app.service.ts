@@ -20,16 +20,19 @@ export class AppService {
       this.loggerService.log(
         `uploadFile: Uploading file to S3 - ${file.originalname}`,
       );
-      const resp = await this.storageService.uploadStream(
+      const s3FilePath = await this.storageService.uploadStream(
         fileStream,
         file.originalname,
         file.mimetype,
       );
 
       this.loggerService.log(
-        `uploadFile: File uploaded successfully - ${resp}`,
+        `uploadFile: File uploaded successfully - ${s3FilePath}`,
       );
-      return resp;
+
+      const preSignedUrl = this.storageService.get(s3FilePath);
+
+      return preSignedUrl;
     } catch (error: any) {
       this.loggerService.error(
         JSON.stringify({
@@ -41,7 +44,7 @@ export class AppService {
         cause: error,
       });
     }
-  }
+  }  
 
   private bufferToStream(buffer: Buffer): Readable {
     this.loggerService.log(

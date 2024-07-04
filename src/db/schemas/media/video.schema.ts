@@ -52,6 +52,9 @@ export class Video extends Document {
 
   @Prop({ type: [{ type: MongooseSchema.Types.ObjectId }], ref: 'Dubbing',default:[] })
   dubbings: MongooseSchema.Types.ObjectId[];
+
+  @Prop({ type: [{ type: MongooseSchema.Types.ObjectId }], ref: 'AudioEnhance',default:[] })
+  audio_enhancments: MongooseSchema.Types.ObjectId[];
 }
 
 export const VideoSchema = SchemaFactory.createForClass(Video);

@@ -51,13 +51,13 @@ export class DubbingConsumer {
         this.loggerService.log(
           `Queue(checkStatusAndUpdate): Saving dubbing in db - completed for id ${data.id}.`,
         );
-        this.audioService.notifyClient(data.requestId,{status:"completed"})
+        this.audioService.notifyClient(data.requestId, { status: 'completed' });
       } else {
         this.loggerService.log(
           `Queue(checkStatusAndUpdate): Dubbing dubbing failed for ${data.id}`,
         );
         await this.audioService.handleDubFail(data.id);
-        this.audioService.notifyClient(data.requestId,{status:"failed"})
+        this.audioService.notifyClient(data.requestId, { status: 'failed' });
         return;
       }
     } catch (error: any) {

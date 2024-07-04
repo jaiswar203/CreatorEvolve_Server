@@ -9,6 +9,9 @@ import { v4 as uuid } from 'uuid';
 import * as ytdl from 'ytdl-core';
 import { exec } from 'child_process';
 import { LoggerService } from '@/common/logger/services/logger.service';
+import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
+import { randomBytes } from 'crypto';
+import { HOURS } from '@/common/constants/time';
 
 @Injectable()
 export class StorageService {
@@ -29,7 +32,6 @@ export class StorageService {
         Bucket: this.configService.get('AWS_BUCKET_NAME'),
         Body: dataBuffer,
         Key: `${uuid()}-${filename}`,
-        ACL: 'public-read',
         ContentType: mimetype,
       })
       .promise();
@@ -52,7 +54,6 @@ export class StorageService {
       Bucket: this.configService.get('AWS_BUCKET_NAME'),
       Key: `${uuid()}-${filename}`,
       Body: stream,
-      ACL: 'public-read',
       ContentType: mimetype,
     };
 
@@ -225,8 +226,18 @@ export class StorageService {
     if (!filename) return;
 
     const fileUrl = `${this.configService.get('AWS_CLOUDFRONT_DISTRIBUTION')}/${filename}`;
-    this.loggerService.log(`Retrieved file URL: ${fileUrl}`, 'StorageService');
-    return fileUrl;
+
+    const preSignedUrl = getSignedUrl({
+      url: fileUrl,
+      dateLessThan: new Date(Date.now() + 1000 * 60 * 60 * 24).toString(),
+      keyPairId: this.configService.get('AWS_CLOUDFRONT_KEY_PAIR'),
+      privateKey: this.configService.get('AWS_CLOUDFRONT_PRIVATE_KEY'),
+    });
+    this.loggerService.log(
+      `Retrieved file URL: ${preSignedUrl}`,
+      'StorageService',
+    );
+    return preSignedUrl;
   }
 
   async delete(filename: string) {
@@ -278,8 +289,34 @@ export class StorageService {
     }
   }
 
+  extractFileNameFromPresignedUrl(url: string) {
+    // Split the URL by '?' to separate the path from the query parameters
+    const [path] = url.split('?');
+
+    // Split the path by '/' to get the last segment which contains the file name
+    const segments = path.split('/');
+    const fileName = segments.pop();
+
+    // Split the file name by '.' to get the extension
+    const parts = fileName.split('.');
+    const extension = parts.pop();
+
+    return extension;
+  }
+
   private getFileExtension(url: string): string {
     return extname(url.split('?')[0]);
+  }
+
+  async generateUploadUrl(fileName: string) {
+    const params = {
+      Bucket: this.configService.get('AWS_BUCKET_NAME'),
+      Key: fileName,
+      Expires: 3600,
+    };
+
+    const uploadUrl = await this.s3.getSignedUrlPromise('putObject', params);
+    return uploadUrl;
   }
 
   async downloadFileFromUrl(url: string): Promise<string> {
@@ -301,5 +338,4 @@ export class StorageService {
       writer.on('error', reject);
     });
   }
-
 }

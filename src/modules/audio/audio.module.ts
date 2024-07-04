@@ -17,6 +17,16 @@ import { Audio, AudioSchema } from '@/db/schemas/media/audio.schema';
 import { Voice, VoiceSchema } from '@/db/schemas/media/voice.schema';
 import { MailModule } from '@/common/mail/mail.module';
 import { Inquiry, InquirySchema } from '@/db/schemas/inquiries/inquiry.schema';
+import { DolbyModule } from '@/libs/dolby/dolby.module';
+import {
+  AudioEnhance,
+  AudioEnhanceSchema,
+} from '@/db/schemas/media/enhance-audio.schema';
+import {
+  AudioAnalyze,
+  AudioAnalyzeSchema,
+} from '@/db/schemas/media/analyze-audio.schema';
+import { OpenAIModule } from '@/libs/openai/openai.module';
 
 @Module({
   imports: [
@@ -44,6 +54,14 @@ import { Inquiry, InquirySchema } from '@/db/schemas/inquiries/inquiry.schema';
         name: Inquiry.name,
         schema: InquirySchema,
       },
+      {
+        name: AudioEnhance.name,
+        schema: AudioEnhanceSchema,
+      },
+      {
+        name: AudioAnalyze.name,
+        schema: AudioAnalyzeSchema,
+      },
     ]),
     BullModule.forRootAsync({
       useFactory: async (configService: ConfigService) => ({
@@ -56,9 +74,12 @@ import { Inquiry, InquirySchema } from '@/db/schemas/inquiries/inquiry.schema';
     }),
     BullModule.registerQueue({ name: DUBBING_QUEUE }),
     UserModule,
-    MailModule
+    MailModule,
+    DolbyModule,
+    OpenAIModule
   ],
   controllers: [AudioController],
   providers: [AudioService, JwtService, DubbingConsumer],
+  exports: [AudioService],
 })
 export class AudioModule {}

@@ -1,10 +1,10 @@
 import { StorageService } from '@/common/storage/services/storage.service';
-import { Video } from '@/db/schemas/media/video.schema';
+import { Video, VideoDocument } from '@/db/schemas/media/video.schema';
 import { ElevenLabsService } from '@/libs/elevenlabs/services/elevenlabs.service';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model, ObjectId, Schema } from 'mongoose';
-import { DubRequestDto } from '../dub.request.dto';
+import { DubRequestDto } from '../dto/dub.request.dto';
 import { LoggerService } from '@/common/logger/services/logger.service';
 import { Dubbing } from '@/db/schemas/media/dubbing.schema';
 import { InjectQueue } from '@nestjs/bull';
@@ -18,10 +18,10 @@ import { UserService } from '@/modules/user/services/user.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { hmsToSeconds, isValidTimeHMSFormat } from 'utils/time';
 import { responseGenerator } from '@/common/config/helper/response.helper';
-import { Audio } from '@/db/schemas/media/audio.schema';
+import { Audio, AudioDocument } from '@/db/schemas/media/audio.schema';
 import { readFileSync } from 'fs';
 import { unlink } from 'fs/promises';
-import { join } from 'path';
+import { extname, join } from 'path';
 import { VIDEO_TYPES } from '@/common/constants/video.enum';
 import { TextToSpeechDTO } from '../dto/text-to-speech.dto';
 import { v4 as uuid } from 'uuid';
@@ -32,6 +32,26 @@ import { SaveRandomGeneratedVoiceDto } from '../dto/save-random-voice.dto';
 import { MailService } from '@/common/mail/services/mail.service';
 import { Inquiry, InquiryTypes } from '@/db/schemas/inquiries/inquiry.schema';
 import { ProfessionalVoiceCloneInquiryDto } from '../dto/professiona-voice-clone-inqury.dto';
+import { DolbyService } from '@/libs/dolby/services/dolby.service';
+import { EnhanceAudioDto } from '../dto/enhance-audio.dto';
+import { AudioEnhance } from '@/db/schemas/media/enhance-audio.schema';
+import { IDolbyContenType } from '@/libs/dolby/enum';
+import {
+  AudioAnalyze,
+  IAudioAnalyzeDiagnosis,
+  IAudioAnalyzeMediaType,
+} from '@/db/schemas/media/analyze-audio.schema';
+import {
+  CHAT_COMPLETION_RESPONSE_FORMAT,
+  OpenAIService,
+} from '@/libs/openai/services/openai.service';
+import {
+  generateDetailedInfoOnLoudness,
+  generateIdealLoudnessObjectForPlatform,
+  generateSummaryForDiagnosedResultOfTheAudio,
+} from '@/common/prompt';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class AudioService {
@@ -42,8 +62,15 @@ export class AudioService {
     private userService: UserService,
     private eventEmitter: EventEmitter2,
     private mailService: MailService,
+    private dolbyService: DolbyService,
+    private openAIService: OpenAIService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     @InjectModel(Video.name) private videoModel: Model<Video>,
     @InjectModel(Audio.name) private audioModel: Model<Audio>,
+    @InjectModel(AudioEnhance.name)
+    private audioEnhanceModel: Model<AudioEnhance>,
+    @InjectModel(AudioAnalyze.name)
+    private audioAnalyzeModel: Model<AudioAnalyze>,
     @InjectModel(Dubbing.name) private dubbingModel: Model<Dubbing>,
     @InjectModel(Voice.name) private voiceModel: Model<Voice>,
     @InjectModel(Inquiry.name) private inquiryModel: Model<Inquiry>,
@@ -168,7 +195,15 @@ export class AudioService {
     );
     try {
       const audios = await this.userService.getAudiosList(userId);
-      return audios;
+      const audioWithPresignedUrl = audios.map((audio) => {
+        const preSignedVideoUrl = this.storageService.get(audio.url);
+
+        return {
+          ...audio,
+          url: preSignedVideoUrl,
+        };
+      });
+      return audioWithPresignedUrl;
     } catch (error) {
       this.loggerService.error(
         JSON.stringify({
@@ -229,6 +264,7 @@ export class AudioService {
         user_id: userId,
         name: audio?.originalname || '',
         url: s3FilePath,
+        type: VIDEO_TYPES.FILE_UPLOAD,
       });
 
       const savedAudio = await audioDoc.save();
@@ -598,7 +634,9 @@ export class AudioService {
         `textToSpeech: Successfully uploaded file to S3 at path ${s3FilePath}`,
       );
 
-      return s3FilePath;
+      const preSignedUrl = this.storageService.get(s3FilePath);
+
+      return preSignedUrl;
     } catch (error: any) {
       this.loggerService.error(
         JSON.stringify({
@@ -677,6 +715,20 @@ export class AudioService {
       );
 
       await this.dubbingModel.findByIdAndDelete(videoId);
+
+      const ID = dubbing.audio_id ?? dubbing.video_id;
+
+      if (dubbing.audio_id) {
+        const audioModel = this.audioModel as Model<Audio>;
+        await audioModel.findByIdAndUpdate(ID, {
+          $pull: { dubbings: dubbing._id },
+        });
+      } else if (dubbing.video_id) {
+        const videoModel = this.videoModel as Model<Video>;
+        await videoModel.findByIdAndUpdate(ID, {
+          $pull: { dubbings: dubbing._id },
+        });
+      }
 
       this.loggerService.log(
         JSON.stringify({
@@ -879,7 +931,9 @@ export class AudioService {
       );
 
       this.loggerService.log('generateRandomVoice: End of function');
-      return { preview: s3FilePath, voice_id: response.id };
+
+      const preSignedUrl = this.storageService.get(s3FilePath);
+      return { preview: preSignedUrl, voice_id: response.id };
     } catch (error: any) {
       this.loggerService.error(
         JSON.stringify({
@@ -1020,7 +1074,7 @@ export class AudioService {
         email: body.email,
         phone: body.phone,
         message: `Inquiry for Professional Voice Clone Service by ${body.email}`,
-        type: InquiryTypes.PROFESSIONAL_VOICE_CLONE
+        type: InquiryTypes.PROFESSIONAL_VOICE_CLONE,
       });
       await inqury.save();
 
@@ -1035,6 +1089,694 @@ export class AudioService {
     } catch (error: any) {
       throw new HttpException(
         error.message ?? 'Server failed',
+        HttpStatus.BAD_GATEWAY,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async enhanceAudio(
+    userId: string,
+    mediaId: string,
+    mediaType: string,
+    body: EnhanceAudioDto,
+  ) {
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Enhancing audio',
+          data: { userId, mediaId, mediaType },
+        }),
+      );
+      let media: any;
+
+      if (mediaType === 'audio') {
+        media = await this.audioModel.findById(mediaId);
+      } else {
+        media = await this.videoModel.findById(mediaId);
+      }
+
+      if (!media) {
+        this.loggerService.warn(
+          JSON.stringify({
+            message: 'enhanceAudio: No video or Audio found',
+            data: { mediaId },
+          }),
+        );
+        throw new HttpException('No Media found', HttpStatus.NOT_FOUND);
+      }
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Media found',
+          data: { media },
+        }),
+      );
+
+      let url: string;
+
+      if (media?.type === VIDEO_TYPES.YOUTUBE) url = media.url;
+      else url = this.storageService.get(media.url);
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'URL for enhancement',
+          data: { url },
+        }),
+      );
+
+      const fileName = `${userId}-${uuid()}${extname(media.url)}`;
+
+      const output_url = await this.storageService.generateUploadUrl(fileName);
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Generated output URL',
+          data: { output_url, fileName },
+        }),
+      );
+
+      const resp = await this.dolbyService.enhanceAudio({
+        ...body,
+        input_url: url,
+        output_url,
+      });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Dolby service response',
+          data: { resp },
+        }),
+      );
+
+      const enhancement = new this.audioEnhanceModel({
+        url: fileName,
+        dolby_job_id: resp.job_id,
+        [mediaType === 'audio' ? 'audio_id' : 'video_id']: mediaId,
+        settings: body,
+        user_id: userId,
+      });
+
+      await enhancement.save();
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Enhancement saved',
+          data: { enhancement },
+        }),
+      );
+
+      return resp;
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'Error in enhanceAudio',
+          data: { error: error.message },
+        }),
+      );
+      throw new HttpException(
+        error.message ?? 'Server failed',
+        HttpStatus.BAD_GATEWAY,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async getEnhancedAudioList(userId: string) {
+    try {
+      const list = await this.audioEnhanceModel
+        .find({ user_id: userId })
+        .populate<{ audio_id: AudioDocument }>('audio_id', 'name')
+        .populate<{ video_id: VideoDocument }>('video_id', 'name')
+
+        .sort({ _id: -1 })
+        .lean();
+
+      const enhancedList = list.map((item) => ({
+        id: item._id,
+        name: item.audio_id?.name || item.video_id?.name || 'Unnamed',
+        status: item.dolby_job_status,
+        settings: item.settings,
+        url: this.storageService.get(item.url),
+        created_at: item.created_at,
+      }));
+
+      return { count: enhancedList.length, data: enhancedList };
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'Error in getEnhancedAudioList',
+          data: { error: error.message },
+        }),
+      );
+      throw new HttpException(
+        error?.message ?? 'Server failed',
+        HttpStatus.BAD_GATEWAY,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async getDiagnosedAudioList(userId: string) {
+    try {
+      const audioList = await this.audioAnalyzeModel
+        .find({ user_id: userId })
+        .populate<{ audio_id: AudioDocument }>('audio_id', 'name _id')
+        .populate<{ video_id: VideoDocument }>('video_id', 'name _id')
+        .sort({ _id: -1 })
+        .lean();
+
+      console.log(audioList);
+      const diagnosedAudioList = audioList.map((item) => ({
+        id: item._id,
+        name: item.audio_id?.name || item.video_id?.name || 'Unnamed',
+        media_id: item.audio_id?._id || item?.video_id?._id,
+        media_type: item.audio_id?._id ? 'audio' : 'video',
+        status: item.dolby_job_status,
+        created_at: item.created_at,
+        diagnosis: item.diagnosis,
+        summary: item.summary,
+        media_info: item.media_info,
+      }));
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Successfully fetched diagnosed audio list',
+          data: { userId, count: diagnosedAudioList.length },
+        }),
+      );
+
+      return { count: diagnosedAudioList.length, data: diagnosedAudioList };
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'Error in getDiagnosedAudioList',
+          data: { error: error.message },
+        }),
+      );
+      throw new HttpException(
+        error?.message ?? 'Server failed',
+        HttpStatus.BAD_GATEWAY,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async enhanceAudioWithDiagnose(
+    userId: string,
+    mediaId: string,
+    mediaType: string,
+    platform: string,
+    loudness: object,
+  ) {
+    const functionName = 'enhanceAudioWithDiagnose';
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: `${functionName}: --------- Enhancing audio ---------`,
+          data: { userId, mediaId, mediaType },
+        }),
+      );
+      let media: any;
+
+      if (mediaType === 'audio') {
+        media = await this.audioModel.findById(mediaId);
+      } else {
+        media = await this.videoModel.findById(mediaId);
+      }
+
+      if (!media) {
+        this.loggerService.warn(
+          JSON.stringify({
+            message: `${functionName}: --------- No video or Audio found ---------`,
+            data: { mediaId },
+          }),
+        );
+        throw new HttpException('No Media found', HttpStatus.NOT_FOUND);
+      }
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: `${functionName}: --------- Media found ---------`,
+          data: { media },
+        }),
+      );
+
+      let url: string;
+
+      if (media?.type === VIDEO_TYPES.YOUTUBE) url = media.url;
+      else url = this.storageService.get(media.url);
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: `${functionName}: --------- URL for enhancement ---------`,
+          data: { url },
+        }),
+      );
+
+      const fileName = `${userId}-${uuid()}${extname(media.url)}`;
+
+      const output_url = await this.storageService.generateUploadUrl(fileName);
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: `${functionName}: --------- Generated output URL ---------`,
+          data: { output_url, fileName },
+        }),
+      );
+
+      const prompt = generateIdealLoudnessObjectForPlatform(loudness, platform);
+
+      const generatedLoudnessObject = await this.openAIService.chatCompletion({
+        prompt,
+        response_format: CHAT_COMPLETION_RESPONSE_FORMAT.JSON_OBJECT,
+      });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: `${functionName}: --------- Generated resp ---------`,
+          data: generatedLoudnessObject,
+        }),
+      );
+
+      const parsedResp = JSON.parse(generatedLoudnessObject);
+
+      const body = {
+        loudness: {
+          ...parsedResp?.loudness,
+          enable: true,
+          dialog_intelligence: true,
+        },
+      };
+
+      const resp = await this.dolbyService.enhanceAudio({
+        ...body,
+        input_url: url,
+        output_url,
+      });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: `${functionName}: --------- Dolby service response ---------`,
+          data: { resp },
+        }),
+      );
+
+      const enhancement = new this.audioEnhanceModel({
+        url: fileName,
+        dolby_job_id: resp.job_id,
+        [mediaType === 'audio' ? 'audio_id' : 'video_id']: mediaId,
+        settings: body,
+        user_id: userId,
+      });
+
+      await enhancement.save();
+      this.loggerService.log(
+        JSON.stringify({
+          message: `${functionName}: --------- Enhancement saved ---------`,
+          data: { enhancement },
+        }),
+      );
+
+      return resp;
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: `${functionName}: --------- Error in enhanceAudio ---------`,
+          data: { error: error.message },
+        }),
+      );
+      throw new HttpException(
+        error.message ?? 'Server failed',
+        HttpStatus.BAD_GATEWAY,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async removeEnhancedAudio(enhanceId: string) {
+    try {
+      const enhanceDoc = await this.audioEnhanceModel.findById(enhanceId);
+
+      if (!enhanceDoc) {
+        throw new HttpException(
+          'Enhancement document not found',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const ID = enhanceDoc.audio_id ?? enhanceDoc.video_id;
+
+      if (enhanceDoc.audio_id) {
+        const audioModel = this.audioModel as Model<Audio>;
+        await audioModel.findByIdAndUpdate(ID, {
+          $pull: { enhancments: enhanceDoc._id },
+        });
+      } else if (enhanceDoc.video_id) {
+        const videoModel = this.videoModel as Model<Video>;
+        await videoModel.findByIdAndUpdate(ID, {
+          $pull: { audio_enhancments: enhanceDoc._id },
+        });
+      }
+
+      await this.audioEnhanceModel.findByIdAndDelete(enhanceId);
+
+      this.loggerService.log(
+        `Enhanced audio with ID ${enhanceId} successfully removed`,
+      );
+
+      return 'Success';
+    } catch (error: any) {
+      const errorMessage = error?.message ?? 'Server failed';
+      this.loggerService.error({
+        message: 'Error in removeEnhacedAudio',
+        error: errorMessage,
+        stack: error.stack,
+      });
+
+      throw new HttpException(errorMessage, HttpStatus.BAD_GATEWAY, {
+        cause: error,
+      });
+    }
+  }
+
+  async dignoseAudio(
+    userId: string,
+    mediaId: string,
+    mediaType: string,
+    contentType?: IDolbyContenType,
+  ) {
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Diagnosing audio',
+          data: { userId, mediaId, mediaType, contentType },
+        }),
+      );
+      let media: any;
+
+      if (mediaType === 'audio') {
+        media = await this.audioModel.findById(mediaId);
+      } else {
+        media = await this.videoModel.findById(mediaId);
+      }
+
+      if (!media) {
+        this.loggerService.warn(
+          JSON.stringify({
+            message: 'dignoseAudio: No video or Audio found',
+            data: { mediaId },
+          }),
+        );
+        throw new HttpException('No Media found', HttpStatus.NOT_FOUND);
+      }
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Media found',
+          data: { media },
+        }),
+      );
+
+      let url: string;
+
+      if (media?.type === VIDEO_TYPES.YOUTUBE) url = media.url;
+      else url = this.storageService.get(media.url);
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'URL for diagnosis',
+          data: { url },
+        }),
+      );
+
+      const job_id = await this.dolbyService.diagnoseAudio(url, contentType);
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Dolby diagnosis job_id',
+          data: { job_id },
+        }),
+      );
+
+      const analysis = new this.audioAnalyzeModel({
+        dolby_job_id: job_id,
+        user_id: userId,
+        [mediaType === 'video' ? 'video_id' : 'audio_id']: mediaId,
+      });
+
+      await analysis.save();
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Analysis saved',
+          data: { analysis },
+        }),
+      );
+
+      return analysis;
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'Error in dignoseAudio',
+          data: { error: error.message },
+        }),
+      );
+      throw new HttpException(
+        error.message ?? 'Server failed',
+        HttpStatus.BAD_GATEWAY,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async saveDiagnoseResult(
+    dolbyJobId: string,
+    dolbyJobStatus: string,
+    diagnosis?: IAudioAnalyzeDiagnosis,
+    media_info?: IAudioAnalyzeMediaType,
+  ) {
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Saving diagnosis result',
+          data: { dolbyJobId, dolbyJobStatus },
+        }),
+      );
+      const document = await this.audioAnalyzeModel.findOne({
+        dolby_job_id: dolbyJobId,
+      });
+      if (!document) {
+        this.loggerService.warn(
+          JSON.stringify({
+            message: 'Dolby analyzed document not found',
+            data: { dolbyJobId },
+          }),
+        );
+        throw Error('Dolby analyzed document not found');
+      }
+      const status = dolbyJobStatus === 'Success' ? 'success' : 'failed';
+      document.dolby_job_status = status;
+
+      if (dolbyJobStatus === 'Success') {
+        document.diagnosis = diagnosis;
+        document.media_info = media_info;
+
+        const prompt = generateSummaryForDiagnosedResultOfTheAudio(diagnosis);
+
+        const resp = await this.openAIService.chatCompletion({
+          prompt,
+          response_format: CHAT_COMPLETION_RESPONSE_FORMAT.JSON_OBJECT,
+        });
+
+        const parsedResponse = JSON.parse(resp);
+
+        document.summary = parsedResponse.summary;
+      }
+
+      this.notifyClient(document.user_id.toString(), { status });
+
+      await document.save();
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Diagnosis result saved',
+          data: { document },
+        }),
+      );
+
+      return 'Success';
+    } catch (error) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'Error in saveDiagnoseResult',
+          data: { error },
+        }),
+      );
+      throw new Error(
+        JSON.stringify({
+          message: 'Error Occurred',
+          error,
+        }),
+      );
+    }
+  }
+
+  async saveEnhanceResult(dolbyJobId: string, dolbyJobStatus: string) {
+    try {
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Saving enhance result',
+          data: { dolbyJobId, dolbyJobStatus },
+        }),
+      );
+      const enhanceDoc = await this.audioEnhanceModel.findOne({
+        dolby_job_id: dolbyJobId,
+      });
+
+      if (!enhanceDoc) {
+        this.loggerService.warn(
+          JSON.stringify({
+            message: 'Dolby analyzed document not found',
+            data: { dolbyJobId },
+          }),
+        );
+        throw Error('Dolby analyzed document not found');
+      }
+
+      const status = dolbyJobStatus === 'Success' ? 'success' : 'failed';
+      enhanceDoc.dolby_job_status = status;
+
+      await enhanceDoc.save();
+
+      this.notifyClient(enhanceDoc.user_id.toString(), { status });
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: 'Enhance result saved',
+          data: { enhanceDoc },
+        }),
+      );
+
+      return 'Success';
+    } catch (error) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: 'Error in saveEnhanceResult',
+          data: { error },
+        }),
+      );
+      throw new Error(
+        JSON.stringify({
+          message: 'Error Occurred',
+          error,
+        }),
+      );
+    }
+  }
+
+  async generateDetailedInfoOnLoudness(analyzeId: string, platform: string) {
+    this.loggerService.log(
+      JSON.stringify({
+        message: `generateDetailedInfoOnLoudness: Starting function for analyzeId: ${analyzeId} and platform: ${platform}`,
+        data: { analyzeId, platform },
+      }),
+    );
+
+    try {
+      const cacheKey = `${analyzeId}-${platform}`;
+      this.loggerService.log(
+        JSON.stringify({
+          message: `generateDetailedInfoOnLoudness: Generated cacheKey`,
+          data: { cacheKey },
+        }),
+      );
+
+      const cachedData = await this.cacheManager.get(cacheKey);
+      if (cachedData) {
+        this.loggerService.log(
+          JSON.stringify({
+            message: `generateDetailedInfoOnLoudness: Cache hit`,
+            data: { cacheKey, cachedData },
+          }),
+        );
+        return cachedData;
+      }
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: `generateDetailedInfoOnLoudness: Cache miss. Fetching data from database`,
+          data: { cacheKey },
+        }),
+      );
+
+      const analyzeDoc = await this.audioAnalyzeModel.findById(analyzeId);
+      if (!analyzeDoc) {
+        this.loggerService.error(
+          JSON.stringify({
+            message: `generateDetailedInfoOnLoudness: No diagnosis found`,
+            data: { analyzeId },
+          }),
+        );
+        throw new HttpException(
+          'No diagnosis found with this ID',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      this.loggerService.log(
+        JSON.stringify({
+          message: `generateDetailedInfoOnLoudness: Fetched analyze document`,
+          data: { analyzeDoc },
+        }),
+      );
+
+      const prompt = generateDetailedInfoOnLoudness(
+        analyzeDoc.diagnosis.loudness,
+        platform,
+      );
+      this.loggerService.log(
+        JSON.stringify({
+          message: `generateDetailedInfoOnLoudness: Generated prompt for OpenAI Service`,
+          data: { prompt },
+        }),
+      );
+
+      const resp = await this.openAIService.chatCompletion({ prompt });
+      this.loggerService.log(
+        JSON.stringify({
+          message: `generateDetailedInfoOnLoudness: Received response from OpenAI Service`,
+          data: { resp },
+        }),
+      );
+
+      await this.cacheManager.set(cacheKey, resp, MINUTES.FIVE);
+      this.loggerService.log(
+        JSON.stringify({
+          message: `generateDetailedInfoOnLoudness: Cached response`,
+          data: { cacheKey, resp, duration: MINUTES.FIVE },
+        }),
+      );
+
+      return resp;
+    } catch (error: any) {
+      this.loggerService.error(
+        JSON.stringify({
+          message: `generateDetailedInfoOnLoudness: Error encountered`,
+          data: { error },
+        }),
+      );
+      throw new HttpException(
+        error?.message ?? 'Server Failed',
         HttpStatus.BAD_GATEWAY,
         {
           cause: error,

@@ -37,7 +37,7 @@ export class OpenAIService {
     temperature = 0.7,
   }: {
     prompt: string;
-    response_format: CHAT_COMPLETION_RESPONSE_FORMAT;
+    response_format?: CHAT_COMPLETION_RESPONSE_FORMAT;
     temperature?: number;
     model?: string;
   }) {

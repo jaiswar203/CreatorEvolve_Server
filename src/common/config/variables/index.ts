@@ -14,6 +14,9 @@ export const aiServices = registerAs('AI_SERVICE', () => ({
   TWELVE_LABS_SIGNING_SECRET: process.env['TWELVE_LABS_SIGNING_SECRET'],
   ELEVEN_LABS_API_KEY: process.env['ELEVEN_LABS_API_KEY'],
   ELEVEN_LABS_BASE_URL: process.env['ELEVEN_LABS_BASE_URL'],
+  DOLBY_API_KEY: process.env['DOLBY_API_KEY'],
+  DOLBY_API_SECRET: process.env['DOLBY_API_SECRET'],
+  DOLBY_MEDIA_URI: process.env['DOLBY_MEDIA_URI'],
   OPEN_AI_API_KEY: process.env['OPEN_AI_API_KEY'],
   PERPLEXITY_API_KEY: process.env['PERPLEXITY_API_KEY'],
 }));
@@ -32,6 +35,8 @@ export const gmailServices = registerAs('GMAIL', () => ({
 export const awsServices = registerAs('AWS', () => ({
   AWS_SECRET_ACCESS_KEY: process.env['AWS_SECRET_ACCESS_KEY'],
   AWS_ACCESS_KEY_ID: process.env['AWS_ACCESS_KEY_ID'],
+  AWS_CLOUDFRONT_KEY_PAIR: process.env['AWS_SECRET_ACCESS_KEY'],
+  AWS_CLOUDFRONT_PRIVATE_KEY: process.env['AWS_ACCESS_KEY_ID'],
   AWS_CLOUDFRONT_DISTRIBUTION: process.env['AWS_CLOUDFRONT_DISTRIBUTION'],
   AWS_BUCKET_NAME: process.env['AWS_CLOUDFRONT_DISTRIBUTION'],
   AWS_REGION: process.env['AWS_CLOUDFRONT_DISTRIBUTION'],

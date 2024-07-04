@@ -46,7 +46,19 @@ export class VideoService {
   async getVideosList(userId: string, tl: boolean) {
     const videos = await this.userService.getVideosList(userId, tl);
 
-    return responseGenerator('Videos Fetched', videos);
+    const videosWithPresignedUrl = videos.map((video) => {
+      if(video.type===VIDEO_TYPES.YOUTUBE) return video
+      const preSignedThumbnailUrl = this.storageService.get(video.thumbnail);
+      const preSignedVideoUrl = this.storageService.get(video.url);
+      
+      return {
+        ...video,
+        url: preSignedVideoUrl,
+        thumbnail: preSignedThumbnailUrl,
+      };
+    });
+
+    return responseGenerator('Videos Fetched', videosWithPresignedUrl);
   }
 
   async getVideoById(videoId: string, accessCode: number): Promise<Video> {
@@ -180,10 +192,7 @@ export class VideoService {
     }
   }
 
-  async uploadVideoUrl(
-    userId: string,
-    body: UploadVideoDTO
-  ) {
+  async uploadVideoUrl(userId: string, body: UploadVideoDTO) {
     const { url } = body;
     try {
       this.loggerService.log(
