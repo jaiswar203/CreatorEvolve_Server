@@ -69,4 +69,9 @@ export class PublicController {
 
     return await this.publicService.tlTaskStatus(body);
   }
+
+  @Post('dolby-job-status')
+  async dolbyJobStatus(@Body() body: any) {
+    return this.publicService.dolbyJobStatus(body);
+  }
 }

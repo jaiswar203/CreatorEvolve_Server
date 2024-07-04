@@ -35,6 +35,14 @@ export class ServiceConfigDTO {
 
   @IsString()
   @IsNotEmpty()
+  AWS_CLOUDFRONT_KEY_PAIR: string;
+
+  @IsString()
+  @IsNotEmpty()
+  AWS_CLOUDFRONT_PRIVATE_KEY: string;
+
+  @IsString()
+  @IsNotEmpty()
   AWS_REGION: string;
 
   @IsString()

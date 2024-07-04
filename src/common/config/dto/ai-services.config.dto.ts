@@ -27,5 +27,17 @@ export class AIServiceConfigDTO{
 
     @IsString()
     @IsNotEmpty()
+    DOLBY_API_KEY:string
+
+    @IsString()
+    @IsNotEmpty()
+    DOLBY_MEDIA_URI:string
+
+    @IsString()
+    @IsNotEmpty()
+    DOLBY_API_SECRET:string
+
+    @IsString()
+    @IsNotEmpty()
     PERPLEXITY_API_KEY:string
 }

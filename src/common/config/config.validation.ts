@@ -24,10 +24,16 @@ export const validationSchema = Joi.object({
   AWS_CLOUDFRONT_DISTRIBUTION: Joi.string().required(),
   AWS_SECRET_ACCESS_KEY: Joi.string().required(),
   AWS_ACCESS_KEY_ID: Joi.string().required(),
+  AWS_CLOUDFRONT_PRIVATE_KEY: Joi.string().required(),
+  AWS_CLOUDFRONT_KEY_PAIR: Joi.string().required(),
   AWS_REGION: Joi.string().required(),
   AWS_BUCKET_NAME: Joi.string().required(),
   
   
   ELEVEN_LABS_API_KEY: Joi.string().required(),
   ELEVEN_LABS_BASE_URL: Joi.string().required(),
+
+  DOLBY_API_KEY: Joi.string().required(),
+  DOLBY_API_SECRET: Joi.string().required(),
+  DOLBY_MEDIA_URI: Joi.string().required(),
 });

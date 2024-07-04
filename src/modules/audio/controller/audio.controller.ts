@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { AudioService } from '../services/audio.service';
 import { AuthGuard } from '@/common/guards/auth.guard';
-import { DubRequestDto } from '../dub.request.dto';
+import { DubRequestDto } from '../dto/dub.request.dto';
 import { Observable, fromEvent, map } from 'rxjs';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SkipAuth } from '@/common/decorators/skip-auth.decorator';
@@ -29,6 +29,8 @@ import { GenerateRandomVoiceRequest } from '@/libs/elevenlabs/services/elevenlab
 import { GenerateVoiceDto } from '../dto/random-voice.dto';
 import { SaveRandomGeneratedVoiceDto } from '../dto/save-random-voice.dto';
 import { ProfessionalVoiceCloneInquiryDto } from '../dto/professiona-voice-clone-inqury.dto';
+import { EnhanceAudioDto } from '../dto/enhance-audio.dto';
+import { IDolbyContenType } from '@/libs/dolby/enum';
 
 @Controller('media/audios')
 @UseGuards(AuthGuard)
@@ -59,10 +61,7 @@ export class AudioController {
   }
 
   @Post('/voices/random')
-  async generateRandomVoice(
-    @Req() req: any,
-    @Body() body: GenerateVoiceDto,
-  ) {
+  async generateRandomVoice(@Req() req: any, @Body() body: GenerateVoiceDto) {
     return this.audioService.generateRandomVoice(req.user.sub, body);
   }
 
@@ -98,7 +97,7 @@ export class AudioController {
 
   @Get('')
   @Roles(ROLE.USER)
-  async getVideosList(@Req() req: any) {
+  async getAudioList(@Req() req: any): Promise<any> {
     return this.audioService.getAudiosList(req.user.sub);
   }
 
@@ -144,10 +143,107 @@ export class AudioController {
     return this.audioService.removeDubbing(videoId);
   }
 
+  @Post('/enhance/:mediaId')
+  async enhanceAudio(
+    @Req() req: any,
+    @Param('mediaId') mediaId: string,
+    @Query('type') mediaType: string,
+    @Body() body: EnhanceAudioDto,
+  ) {
+    return this.audioService.enhanceAudio(
+      req.user.sub,
+      mediaId,
+      mediaType,
+      body,
+    );
+  }
+
+  @Delete('/enhance/:enhanceId')
+  async removeEnhancedAudio(@Param('enhanceId') enhanceId: string) {
+    return this.audioService.removeEnhancedAudio(enhanceId);
+  }
+
+  @Get('/enhance/list')
+  async getEnhancedAudioList(@Req() req: any): Promise<any> {
+    return this.audioService.getEnhancedAudioList(req.user.sub);
+  }
+
+  @Post('/enhance/diagnose/:mediaId')
+  async enhanceAudioWithDiagnose(
+    @Req() req: any,
+    @Param('mediaId') mediaId: string,
+    @Query('type') mediaType: string,
+    @Query('platform') platform: string,
+    @Body() body: object,
+  ) {
+    return this.audioService.enhanceAudioWithDiagnose(
+      req.user.sub,
+      mediaId,
+      mediaType,
+      platform,
+      body,
+    );
+  }
+
+  @Post('/diagnose/:mediaId')
+  async diagnoseAudio(
+    @Req() req: any,
+    @Param('mediaId') mediaId: string,
+    @Query('type') mediaType: string,
+    @Query('content') contentType: IDolbyContenType,
+  ) {
+    return this.audioService.dignoseAudio(
+      req.user.sub,
+      mediaId,
+      mediaType,
+      contentType,
+    );
+  }
+
+  @Get('/diagnose/list')
+  async getDiagnosedAudioList(@Req() req: any) {
+    return this.audioService.getDiagnosedAudioList(req.user.sub);
+  }
+
+  @Post('/diagnose/:mediaId/detailed/loudness')
+  async generateDetailedInfoOnLoudness(
+    @Param('mediaId') mediaId: string,
+    @Query('platform') platform: string,
+  ) {
+    return this.audioService.generateDetailedInfoOnLoudness(mediaId, platform);
+  }
+
   // We're skipping auth because we can't pass headers to EventSource Resource from the client
   @SkipAuth()
   @Sse('dubbing/events/:id')
   dubbingEvents(@Param('id') id: string): Observable<MessageEvent> {
+    return fromEvent(this.eventEmitter, id).pipe(
+      map((data: any) => {
+        return {
+          type: 'message',
+          data: JSON.stringify(data),
+        } as MessageEvent;
+      }),
+    );
+  }
+
+  // We're skipping auth because we can't pass headers to EventSource Resource from the client
+  @SkipAuth()
+  @Sse('enhance/events/:id')
+  enhanceEvents(@Param('id') id: string): Observable<MessageEvent> {
+    return fromEvent(this.eventEmitter, id).pipe(
+      map((data: any) => {
+        return {
+          type: 'message',
+          data: JSON.stringify(data),
+        } as MessageEvent;
+      }),
+    );
+  }
+
+  @SkipAuth()
+  @Sse('diagnose/events/:id')
+  diagnoseEvents(@Param('id') id: string): Observable<MessageEvent> {
     return fromEvent(this.eventEmitter, id).pipe(
       map((data: any) => {
         return {
