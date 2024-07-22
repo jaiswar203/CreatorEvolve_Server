@@ -23,6 +23,22 @@ export class ServiceConfigDTO {
 
   @IsString()
   @IsNotEmpty()
+  GOOGLE_CLIENT_ID: string;
+
+  @IsString()
+  @IsNotEmpty()
+  GOOGLE_CLIENT_SECRET: string;
+
+  @IsString()
+  @IsNotEmpty()
+  GOOGLE_SEARCH_ENGINE_ID: string;
+
+  @IsString()
+  @IsNotEmpty()
+  GOOGLE_API_KEY: string;
+
+  @IsString()
+  @IsNotEmpty()
   AWS_CLOUDFRONT_DISTRIBUTION: string;
 
   @IsString()

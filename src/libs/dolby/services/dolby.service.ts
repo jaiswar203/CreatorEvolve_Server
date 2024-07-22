@@ -5,7 +5,7 @@ import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
 import { lastValueFrom } from 'rxjs';
 import { DOLBY_ACCESS_TOKEN } from '../enum';
-import { IDolbyContenType, IDolbyEnhanceRequest, IDolbyAmount } from '../enum';
+import { IDolbyContenType, IDolbyEnhanceRequest } from '../enum';
 import { HOURS } from '@/common/constants/time';
 
 @Injectable()

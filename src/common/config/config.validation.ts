@@ -16,6 +16,13 @@ export const validationSchema = Joi.object({
   REDIS_PASSWORD: Joi.string().required(),
   OPEN_AI_API_KEY: Joi.string().required(),
   PERPLEXITY_API_KEY: Joi.string().required(),
+  PERPLEXITY_API_URL: Joi.string().required(),
+  PERPLEXITY_DEFAULT_MODEL: Joi.string().required(),
+
+  GOOGLE_CLIENT_ID: Joi.string().required(),
+  GOOGLE_CLIENT_SECRET: Joi.string().required(),
+  GOOGLE_SEARCH_ENGINE_ID: Joi.string().required(),
+  GOOGLE_API_KEY: Joi.string().required(),
 
   // temp email config
   GMAIL_PASS: Joi.string().required(),
@@ -28,8 +35,7 @@ export const validationSchema = Joi.object({
   AWS_CLOUDFRONT_KEY_PAIR: Joi.string().required(),
   AWS_REGION: Joi.string().required(),
   AWS_BUCKET_NAME: Joi.string().required(),
-  
-  
+
   ELEVEN_LABS_API_KEY: Joi.string().required(),
   ELEVEN_LABS_BASE_URL: Joi.string().required(),
 

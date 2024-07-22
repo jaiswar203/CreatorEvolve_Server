@@ -17,6 +17,7 @@ import { AudioModule } from './audio/audio.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { StorageModule } from '@/common/storage/storage.module';
+import { ResearchModule } from './research/research.module';
 
 type NestModuleImport =
   | Type<any>
@@ -59,7 +60,8 @@ const appModules: NestModuleImport[] = [
     }),
     PublicModule,
     AudioModule,
-    StorageModule
+    StorageModule,
+    ResearchModule
   ],
   controllers: [AppController],
   providers: [AppService],

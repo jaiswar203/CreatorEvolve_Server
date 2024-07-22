@@ -32,14 +32,16 @@ export class OpenAIService {
 
   async chatCompletion({
     prompt,
-    response_format = CHAT_COMPLETION_RESPONSE_FORMAT.TEXT,
+    responseFormat = CHAT_COMPLETION_RESPONSE_FORMAT.TEXT,
     model,
     temperature = 0.7,
+    maxTokens,
   }: {
     prompt: string;
-    response_format?: CHAT_COMPLETION_RESPONSE_FORMAT;
+    responseFormat?: CHAT_COMPLETION_RESPONSE_FORMAT;
     temperature?: number;
     model?: string;
+    maxTokens?: number;
   }) {
     try {
       this.loggerService.log(
@@ -48,15 +50,18 @@ export class OpenAIService {
       const response = await this.client.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
         model: model ?? 'gpt-4o',
-        response_format: { type: response_format },
+        response_format: { type: responseFormat },
         temperature,
+        max_tokens: maxTokens,
       });
 
       this.loggerService.log(
-        `chatCompletion: Generated Response for prompt: ${response.choices[0].message.content}  `,
+        `chatCompletion: Generated Response for prompt: ${response.choices[0].message.content} ,Total Token usage: ${response.usage.total_tokens} `,
       );
       return response.choices[0].message.content;
-    } catch (error: any) {}
+    } catch (error: any) {
+      // throw new Error(JSON.stringify(error));
+    }
   }
 
   async transcribe({

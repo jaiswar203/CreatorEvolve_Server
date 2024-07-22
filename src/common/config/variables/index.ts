@@ -19,6 +19,8 @@ export const aiServices = registerAs('AI_SERVICE', () => ({
   DOLBY_MEDIA_URI: process.env['DOLBY_MEDIA_URI'],
   OPEN_AI_API_KEY: process.env['OPEN_AI_API_KEY'],
   PERPLEXITY_API_KEY: process.env['PERPLEXITY_API_KEY'],
+  PERPLEXITY_API_URL: process.env['PERPLEXITY_API_URL'],
+  PERPLEXITY_DEFAULT_MODEL: process.env['PERPLEXITY_DEFAULT_MODEL'],
 }));
 
 export const cloudServices = registerAs('SERVICE', () => ({
@@ -30,6 +32,13 @@ export const cloudServices = registerAs('SERVICE', () => ({
 export const gmailServices = registerAs('GMAIL', () => ({
   GMAIL_MAIL: process.env['GMAIL_MAIL'],
   GMAIL_PASS: process.env['GMAIL_PASS'],
+}));
+
+export const google = registerAs('google', () => ({
+  GOOGLE_CLIENT_ID: process.env['GOOGLE_CLIENT_ID'],
+  GOOGLE_CLIENT_SECRET: process.env['GOOGLE_CLIENT_SECRET'],
+  GOOGLE_SEARCH_ENGINE_ID: process.env['GOOGLE_SEARCH_ENGINE_ID'],
+  GOOGLE_API_KEY: process.env['GOOGLE_API_KEY'],
 }));
 
 export const awsServices = registerAs('AWS', () => ({

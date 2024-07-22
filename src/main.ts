@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './modules/app.module';
 import { ConfigService } from '@/common/config/services/config.service';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
@@ -23,10 +23,12 @@ async function bootstrap() {
     defaultVersion: '1',
   });
 
+  const reflector = new Reflector();
+
   app.useLogger(app.get(Logger));
   app.use(helmet());
   app.useBodyParser('text');
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalInterceptors(new ResponseInterceptor(reflector));
   app.useGlobalFilters(new HttpExceptionFilter());
 
   app.useGlobalPipes(

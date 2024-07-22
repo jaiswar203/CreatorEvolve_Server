@@ -198,4 +198,10 @@ export class UserService {
       $push: { voices: voiceId },
     });
   }
+
+  async addResearch(userId: string, researchId: ObjectId) {
+    await this.userModel.findByIdAndUpdate(userId, {
+      $push: { researchs: researchId },
+    });
+  }
 }

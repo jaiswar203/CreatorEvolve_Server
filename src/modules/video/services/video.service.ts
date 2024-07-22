@@ -6,7 +6,6 @@ import {
 import {
   CHAPTER_CUSTOM_PROMPT,
   IFormattedDataResponse,
-  VIDEO_QUALITY,
   VIDEO_TYPES,
 } from '@/common/constants/video.enum';
 import { LoggerService } from '@/common/logger/services/logger.service';
@@ -47,10 +46,10 @@ export class VideoService {
     const videos = await this.userService.getVideosList(userId, tl);
 
     const videosWithPresignedUrl = videos.map((video) => {
-      if(video.type===VIDEO_TYPES.YOUTUBE) return video
+      if (video.type === VIDEO_TYPES.YOUTUBE) return video;
       const preSignedThumbnailUrl = this.storageService.get(video.thumbnail);
       const preSignedVideoUrl = this.storageService.get(video.url);
-      
+
       return {
         ...video,
         url: preSignedVideoUrl,
@@ -518,7 +517,7 @@ export class VideoService {
 
     const response = await this.openAIService.chatCompletion({
       prompt: customGPTPrompt,
-      response_format: CHAT_COMPLETION_RESPONSE_FORMAT.JSON_OBJECT,
+      responseFormat: CHAT_COMPLETION_RESPONSE_FORMAT.JSON_OBJECT,
       temperature: 0.1,
     });
 
