@@ -25,7 +25,6 @@ import { ROLE } from '@/common/constants/roles.enum';
 import { editFileName } from '@/modules/video/utils/editFileName';
 import { TextToSpeechDTO } from '../dto/text-to-speech.dto';
 import { InstantVoiceCloneDto } from '../dto/instant-clone.dto';
-import { GenerateRandomVoiceRequest } from '@/libs/elevenlabs/services/elevenlabs.service';
 import { GenerateVoiceDto } from '../dto/random-voice.dto';
 import { SaveRandomGeneratedVoiceDto } from '../dto/save-random-voice.dto';
 import { ProfessionalVoiceCloneInquiryDto } from '../dto/professiona-voice-clone-inqury.dto';

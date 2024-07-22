@@ -1356,7 +1356,7 @@ export class AudioService {
 
       const generatedLoudnessObject = await this.openAIService.chatCompletion({
         prompt,
-        response_format: CHAT_COMPLETION_RESPONSE_FORMAT.JSON_OBJECT,
+        responseFormat: CHAT_COMPLETION_RESPONSE_FORMAT.JSON_OBJECT,
       });
 
       this.loggerService.log(
@@ -1596,7 +1596,7 @@ export class AudioService {
 
         const resp = await this.openAIService.chatCompletion({
           prompt,
-          response_format: CHAT_COMPLETION_RESPONSE_FORMAT.JSON_OBJECT,
+          responseFormat: CHAT_COMPLETION_RESPONSE_FORMAT.JSON_OBJECT,
         });
 
         const parsedResponse = JSON.parse(resp);
